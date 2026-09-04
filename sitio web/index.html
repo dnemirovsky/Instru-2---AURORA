@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AURORA | Monitoreo de Somnolencia</title>
+  <!-- Google Fonts para tipografía clara y moderna -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Header / Barra Superior -->
+  <header class="top-header">
+    <div class="header-container">
+      <div class="brand-nav-group">
+        <div class="brand">
+          <div class="brand-icon">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+          </div>
+          <div class="brand-text">
+            <h1>AURORA</h1>
+            <span>Centro de Monitoreo y Seguridad Vial</span>
+          </div>
+        </div>
+
+        <!-- Menú Desplegable de Navegación -->
+        <div class="nav-dropdown-wrapper" id="navDropdownWrapper">
+          <button id="navMenuBtn" class="nav-menu-btn" aria-haspopup="true" aria-expanded="false" title="Menú de Navegación">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+            <span id="currentViewLabel">Inicio</span>
+            <svg class="chevron-icon" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+          <div id="navDropdownMenu" class="nav-dropdown-menu" style="display: none;">
+            <button class="dropdown-item active" data-view="inicio">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+              </svg>
+              <div class="dropdown-item-text">
+                <strong>Inicio</strong>
+                <span>Monitoreo en tiempo real de flota</span>
+              </div>
+            </button>
+            <button class="dropdown-item" data-view="historial">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+              <div class="dropdown-item-text">
+                <strong>Ver Historial</strong>
+                <span>Historial de alertas por conductor</span>
+              </div>
+            </button>
+            <button class="dropdown-item" data-view="alta">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <line x1="19" y1="8" x2="19" y2="14"></line>
+                <line x1="22" y1="11" x2="16" y2="11"></line>
+              </svg>
+              <div class="dropdown-item-text">
+                <strong>Alta de conductores</strong>
+                <span>Registrar nuevo conductor</span>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-center">
+        <div class="live-indicator" id="liveIndicator">
+          <span class="pulse-dot"></span>
+          <span class="indicator-text">Monitoreo en Tiempo Real (Simulado)</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div class="clock-display" id="currentTime">--:--:--</div>
+        <button id="simToggleBtn" class="btn btn-outline" title="Pausar/Reanudar simulación">
+          <svg id="simToggleIcon" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+            <rect x="6" y="4" width="4" height="16"></rect>
+            <rect x="14" y="4" width="4" height="16"></rect>
+          </svg>
+          <span id="simToggleText">Pausar Simulación</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <!-- Vista 1: Inicio (Monitoreo de Flota) -->
+    <div id="viewInicio" class="app-view active-view">
+      <!-- Panel Resumen de KPIs / Estados -->
+      <section class="kpi-section" aria-label="Resumen de Estados de Conductores">
+      <div class="kpi-card kpi-total" data-filter="all" id="kpiTotalCard">
+        <div class="kpi-header">
+          <span class="kpi-title">Conductores Activos</span>
+          <span class="kpi-icon">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+          </span>
+        </div>
+        <div class="kpi-value-row">
+          <span class="kpi-number" id="countTotal">0</span>
+          <span class="kpi-tag tag-neutral">En ruta</span>
+        </div>
+      </div>
+
+      <div class="kpi-card kpi-normal" data-filter="normal" id="kpiNormalCard">
+        <div class="kpi-header">
+          <span class="kpi-title">Estado Normal</span>
+          <span class="status-badge badge-normal">
+            <span class="status-bullet"></span> Óptimo
+          </span>
+        </div>
+        <div class="kpi-value-row">
+          <span class="kpi-number text-normal" id="countNormal">0</span>
+          <span class="kpi-percentage" id="pctNormal">0%</span>
+        </div>
+      </div>
+
+      <div class="kpi-card kpi-warning" data-filter="precaucion" id="kpiWarningCard">
+        <div class="kpi-header">
+          <span class="kpi-title">En Precaución</span>
+          <span class="status-badge badge-warning">
+            <span class="status-bullet"></span> Fatiga Leve
+          </span>
+        </div>
+        <div class="kpi-value-row">
+          <span class="kpi-number text-warning" id="countWarning">0</span>
+          <span class="kpi-percentage" id="pctWarning">0%</span>
+        </div>
+        <div class="kpi-footer">Bostezos reiterados o distracción leve</div>
+      </div>
+
+      <div class="kpi-card kpi-danger" data-filter="alerta" id="kpiDangerCard">
+        <div class="kpi-header">
+          <span class="kpi-title">En Alerta Crítica</span>
+          <span class="status-badge badge-danger">
+            <span class="status-bullet blink"></span> Somnolencia
+          </span>
+        </div>
+        <div class="kpi-value-row">
+          <span class="kpi-number text-danger" id="countDanger">0</span>
+          <span class="kpi-percentage" id="pctDanger">0%</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Barra de Filtros y Herramientas -->
+    <div class="controls-bar">
+      <div class="search-box">
+        <svg class="search-icon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input 
+          type="text" 
+          id="searchInput" 
+          placeholder="Buscar por conductor, patente (ej: AA 412), vehículo o ruta..." 
+          autocomplete="off"
+        />
+        <button id="clearSearchBtn" class="clear-btn" title="Limpiar búsqueda" style="display:none;">&times;</button>
+      </div>
+
+      <div class="filter-group">
+        <span class="filter-label">Filtrar estado:</span>
+        <button class="filter-btn active" data-status="all">Todos</button>
+        <button class="filter-btn" data-status="normal">Normal</button>
+        <button class="filter-btn" data-status="precaucion">Precaución</button>
+        <button class="filter-btn" data-status="alerta">Alerta</button>
+      </div>
+
+      <div class="view-toggle">
+        <button id="btnGridView" class="toggle-btn active" title="Vista Cuadrícula">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+        </button>
+        <button id="btnTableView" class="toggle-btn" title="Vista Tabla">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Contenido Principal: Grid / Tabla + Feed de Eventos -->
+    <div class="content-layout">
+      <!-- Sección de Conductores -->
+      <section class="drivers-area" aria-label="Conductores Monitoreados">
+        <!-- Vista de Tarjetas (Grid) -->
+        <div id="driversGrid" class="drivers-grid"></div>
+
+        <!-- Vista de Tabla -->
+        <div id="driversTableWrapper" class="drivers-table-container" style="display: none;">
+          <table class="drivers-table">
+            <thead>
+              <tr>
+                <th>Conductor</th>
+                <th>Vehículo</th>
+                <th>Ruta Actual</th>
+                <th>Horas</th>
+                <th>Somnolencia</th>
+                <th>Estado</th>
+                <th>Última Novedad</th>
+                <th class="text-right">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="driversTableBody"></tbody>
+          </table>
+        </div>
+
+        <!-- Mensaje cuando no hay resultados de búsqueda -->
+        <div id="emptyState" class="empty-state" style="display: none;">
+          <div class="empty-icon">🔍</div>
+          <h3>No se encontraron conductores</h3>
+          <p>Intenta ajustar el término de búsqueda o el filtro de estado seleccionado.</p>
+          <button id="resetFiltersBtn" class="btn btn-secondary">Restablecer filtros</button>
+        </div>
+      </section>
+
+      <!-- Panel Lateral: Registro de Incidentes y Eventos en Vivo -->
+      <aside class="activity-feed-panel">
+        <div class="feed-header">
+          <div class="feed-title-wrap">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+            <h2>Registro de Alertas</h2>
+          </div>
+          <span class="badge-count" id="eventsCount">0</span>
+        </div>
+        <div id="eventsList" class="events-list"></div>
+      </aside>
+    </div>
+  </div>
+  <!-- Fin Vista 1: Inicio -->
+
+  <!-- Vista 2: Ver Historial de Alertas por Conductor -->
+  <div id="viewHistorial" class="app-view" style="display: none;">
+    <div class="view-header">
+      <div class="view-header-title">
+        <h2>Historial de Alertas y Somnolencia</h2>
+        <p>Auditoría y registro de eventos de fatiga, pestañeos lentos y microsueños por conductor</p>
+      </div>
+    </div>
+
+    <!-- Barra de Filtros de Historial -->
+    <div class="history-controls-bar">
+      <div class="history-filter-item">
+        <label for="historyDriverSelect">Filtrar por Conductor:</label>
+        <select id="historyDriverSelect" class="form-select">
+          <option value="all">Todos los conductores</option>
+        </select>
+      </div>
+
+      <div class="history-filter-item">
+        <label for="historySeveritySelect">Severidad:</label>
+        <select id="historySeveritySelect" class="form-select">
+          <option value="all">Todas las severidades</option>
+          <option value="alerta">Solo Alertas Críticas</option>
+          <option value="precaucion">Solo Precaución</option>
+        </select>
+      </div>
+
+      <div class="history-filter-item history-search-item">
+        <label for="historySearchInput">Buscar en el registro:</label>
+        <div class="search-box">
+          <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="historySearchInput" placeholder="Buscar por conductor, patente o evento..." />
+        </div>
+      </div>
+    </div>
+
+    <!-- Métricas Resumen de Historial -->
+    <div class="history-kpis-grid">
+      <div class="history-kpi-card">
+        <span class="hkpi-title">Incidentes Totales</span>
+        <span class="hkpi-value" id="hkpiTotal">0</span>
+        <span class="hkpi-sub">Eventos registrados</span>
+      </div>
+      <div class="history-kpi-card hkpi-card-danger">
+        <span class="hkpi-title">Microsueños Críticos</span>
+        <span class="hkpi-value text-danger" id="hkpiMicrosleeps">0</span>
+        <span class="hkpi-sub">Cierres oculares > 1.5s</span>
+      </div>
+      <div class="history-kpi-card hkpi-card-warning">
+        <span class="hkpi-title">Alertas de Precaución</span>
+        <span class="hkpi-value text-warning" id="hkpiWarnings">0</span>
+        <span class="hkpi-sub">Bostezos y fatiga incipiente</span>
+      </div>
+      <div class="history-kpi-card hkpi-card-info">
+        <span class="hkpi-title">Intervenciones en Cabina</span>
+        <span class="hkpi-value" id="hkpiActions">0</span>
+        <span class="hkpi-sub">Alarmas emitidas o paradas</span>
+      </div>
+    </div>
+
+    <!-- Tabla Histórica -->
+    <div class="drivers-table-container">
+      <table class="drivers-table">
+        <thead>
+          <tr>
+            <th>Fecha y Hora</th>
+            <th>Conductor</th>
+            <th>Vehículo / Patente</th>
+            <th>Ruta / Tramo</th>
+            <th>Tipo de Evento</th>
+            <th>PERCLOS</th>
+            <th>Duración</th>
+            <th>Severidad</th>
+            <th>Acción Realizada</th>
+          </tr>
+        </thead>
+        <tbody id="historyTableBody"></tbody>
+      </table>
+    </div>
+
+    <div id="historyEmptyState" class="empty-state" style="display: none;">
+      <div class="empty-icon">📁</div>
+      <h3>No se encontraron registros</h3>
+      <p>No hay alertas que coincidan con los filtros seleccionados.</p>
+    </div>
+  </div>
+  <!-- Fin Vista 2: Ver Historial -->
+
+  <!-- Vista 3: Alta de Conductores -->
+  <div id="viewAlta" class="app-view" style="display: none;">
+    <div class="view-header">
+      <div class="view-header-title">
+        <h2>Alta de Conductor</h2>
+        <p>Registra un nuevo chofer en el sistema y asígnalo inmediatamente al monitoreo en vivo</p>
+      </div>
+    </div>
+
+    <div class="form-container-card">
+      <form id="newDriverForm" class="driver-form" novalidate>
+        <div class="form-section-title">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          Datos Personales y Habilitación
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label for="formDriverName">Nombre y Apellido <span class="required-star">*</span></label>
+            <input type="text" id="formDriverName" class="form-input" placeholder="Ej: Juan Manuel Fangio" required />
+            <span class="form-error" id="errDriverName"></span>
+          </div>
+          <div class="form-group">
+            <label for="formDriverLicense">Número de Licencia de Conducir <span class="required-star">*</span></label>
+            <input type="text" id="formDriverLicense" class="form-input" placeholder="Ej: B2-774910" required />
+            <span class="form-error" id="errDriverLicense"></span>
+          </div>
+        </div>
+
+        <div class="form-section-title">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+            <rect x="1" y="3" width="15" height="13"></rect>
+            <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+            <circle cx="5.5" cy="18.5" r="2.5"></circle>
+            <circle cx="18.5" cy="18.5" r="2.5"></circle>
+          </svg>
+          Asignación de Vehículo y Ruta
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label for="formDriverVehicle">Modelo de Camión / Unidad <span class="required-star">*</span></label>
+            <input type="text" id="formDriverVehicle" class="form-input" placeholder="Ej: Scania R450 - Semi Térmico" required />
+            <span class="form-error" id="errDriverVehicle"></span>
+          </div>
+          <div class="form-group">
+            <label for="formDriverPlate">Patente / Dominio <span class="required-star">*</span></label>
+            <input type="text" id="formDriverPlate" class="form-input" placeholder="Ej: AF 123 CD" style="text-transform: uppercase;" required />
+            <span class="form-error" id="errDriverPlate"></span>
+          </div>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label for="formDriverRoute">Ruta / Corredor Asignado <span class="required-star">*</span></label>
+            <input type="text" id="formDriverRoute" class="form-input" placeholder="Ej: Buenos Aires → Córdoba (RN 9)" required />
+            <span class="form-error" id="errDriverRoute"></span>
+          </div>
+          <div class="form-group">
+            <label for="formDriveHours">Tiempo inicial al volante</label>
+            <input type="text" id="formDriveHours" class="form-input" placeholder="Ej: 1h 30m" value="0h 45m" />
+          </div>
+        </div>
+
+        <div class="form-section-title">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          Estado Inicial de Monitoreo
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label for="formDriverStatus">Estado Inicial de Alerta</label>
+            <select id="formDriverStatus" class="form-select">
+              <option value="normal" selected>Normal (Óptimo, sin fatiga)</option>
+              <option value="precaucion">Precaución (Fatiga leve o bostezos)</option>
+              <option value="alerta">Alerta Crítica (Somnolencia detectada)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="formDriverFatigue">Nivel de Somnolencia Inicial: <strong id="fatigueValDisplay">15%</strong></label>
+            <input type="range" id="formDriverFatigue" min="5" max="95" value="15" class="form-range" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="formDriverNotes">Novedad o Registro Inicial</label>
+          <input type="text" id="formDriverNotes" class="form-input" placeholder="Ej: Conductor saliendo de centro logístico sin incidentes." value="Inicio de ruta en condiciones óptimas." />
+        </div>
+
+        <div class="form-actions-row">
+          <button type="submit" class="btn btn-primary-action btn-submit-form">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+              <polyline points="17 21 17 13 7 13 7 21"></polyline>
+              <polyline points="7 3 7 8 15 8"></polyline>
+            </svg>
+            Registrar y Activar en Monitoreo
+          </button>
+          <button type="button" id="btnCancelAlta" class="btn btn-outline-action">
+            Cancelar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <!-- Fin Vista 3: Alta de Conductores -->
+  </main>
+
+  <!-- Modal de Detalle de Conductor -->
+  <div id="driverModal" class="modal-backdrop" style="display: none;" aria-hidden="true" role="dialog">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-driver-summary">
+          <div class="modal-avatar" id="modalAvatar">JD</div>
+          <div>
+            <h3 id="modalDriverName">Nombre Conductor</h3>
+            <span class="modal-subtext" id="modalDriverMeta">Licencia: B2 • Camión Scania R450 (AA 123 CD)</span>
+          </div>
+        </div>
+        <button id="closeModalBtn" class="modal-close" aria-label="Cerrar modal">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Barra de Estado Actual -->
+        <div class="modal-status-banner" id="modalStatusBanner">
+          <div class="status-banner-left">
+            <span class="status-indicator-dot" id="modalStatusDot"></span>
+            <div>
+              <strong id="modalStatusText">ESTADO NORMAL</strong>
+              <div id="modalStatusDesc" class="status-banner-sub">Conducción estable sin anomalías registradas.</div>
+            </div>
+          </div>
+          <div class="status-banner-score">
+            <span class="score-number" id="modalScoreVal">12%</span>
+            <span class="score-label">Nivel Fatiga</span>
+          </div>
+        </div>
+
+        <!-- Métricas de Telemetría Sensorica -->
+        <div class="modal-metrics-grid">
+          <div class="metric-box">
+            <span class="metric-title">PERCLOS (Cierre Ocular)</span>
+            <span class="metric-value" id="modalPerclos">4.2%</span>
+            <span class="metric-hint">Umbral crítico: > 15%</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-title">Frecuencia Parpadeo</span>
+            <span class="metric-value" id="modalBlinkRate">18 /min</span>
+            <span class="metric-hint">Normal: 12-24 /min</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-title">Tiempo al Volante Continuo</span>
+            <span class="metric-value" id="modalDriveHours">2h 15m</span>
+            <span class="metric-hint">Máx recomendado: 4h 00m</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-title">Microsueños Detectados</span>
+            <span class="metric-value" id="modalMicrosleeps">0</span>
+            <span class="metric-hint">Últimas 4 horas</span>
+          </div>
+        </div>
+
+        <!-- Información de Ruta y Vehículo -->
+        <h4 class="section-subtitle">Información del Viaje</h4>
+        <div class="modal-trip-info">
+          <div class="trip-item">
+            <span class="trip-key">Ruta Asignada:</span>
+            <span class="trip-val" id="modalRoute">Buenos Aires - Rosario (RN 9)</span>
+          </div>
+          <div class="trip-item">
+            <span class="trip-key">Unidad / Semirremolque:</span>
+            <span class="trip-val" id="modalVehicle">Mercedes-Benz Actros 2045 - Semi Térmico</span>
+          </div>
+          <div class="trip-item">
+            <span class="trip-key">Velocidad Actual:</span>
+            <span class="trip-val" id="modalSpeed">84 km/h</span>
+          </div>
+          <div class="trip-item">
+            <span class="trip-key">Última Parada Registrada:</span>
+            <span class="trip-val" id="modalLastStop">Hace 2 horas (Estación YPF Zárate)</span>
+          </div>
+        </div>
+
+        <!-- Protocolo de Acción Inmediata -->
+        <h4 class="section-subtitle">Protocolo de Intervención en Cabina</h4>
+        <div class="modal-actions-box">
+          <button id="btnSendCabinAlert" class="btn btn-warning-action">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+            Emitir Alarma Sonora en Cabina
+          </button>
+          <button id="btnCallCabin" class="btn btn-primary-action">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+            </svg>
+            Llamar al Conductor
+          </button>
+          <button id="btnAssignRestStop" class="btn btn-outline-action">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            Ordenar Parada de Descanso
+          </button>
+        </div>
+
+        <div id="actionFeedback" class="action-feedback" style="display: none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast de Notificaciones Flotantes -->
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <footer class="main-footer">
+    <div class="footer-container">
+      <p>Aurora — Sistema de Monitoreo Preventivo de Somnolencia</p>
+      <div class="footer-note">Datos de muestra simulados listos para vinculación con API / Base de datos.</div>
+    </div>
+  </footer>
+
+  <script src="web.js"></script>
+</body>
+</html>
+
