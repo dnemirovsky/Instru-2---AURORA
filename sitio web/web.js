@@ -400,7 +400,12 @@ const state = {
   // Filtros de Historial
   historyDriverFilter: "all",
   historySeverityFilter: "all",
-  historySearchQuery: ""
+  historySearchQuery: "",
+
+  // Gráfico de Alarmas vs. Horas de Manejo
+  chartDriverFilter: "all",
+  chartMetricFilter: "all",
+  chartHoveredIndex: null
 };
 
 // ============================================================================
@@ -491,6 +496,19 @@ const DOM = {
   historyTableBody: document.getElementById("historyTableBody"),
   historyEmptyState: document.getElementById("historyEmptyState"),
 
+  // Gráfico de Alarmas vs Tiempo de Conducción
+  chartDriverSelect: document.getElementById("chartDriverSelect"),
+  chartMetricPills: document.querySelectorAll("#chartMetricPills .chart-pill"),
+  fatigueTimeCanvas: document.getElementById("fatigueTimeCanvas"),
+  chartCanvasWrapper: document.getElementById("chartCanvasWrapper"),
+  chartTooltip: document.getElementById("chartTooltip"),
+  chartInsightBar: document.getElementById("chartInsightBar"),
+  chartInsightBadge: document.getElementById("chartInsightBadge"),
+  chartInsightText: document.getElementById("chartInsightText"),
+  chartFleetCount: document.getElementById("chartFleetCount"),
+  legendDriverItem: document.getElementById("legendDriverItem"),
+  chartLegendDriverName: document.getElementById("chartLegendDriverName"),
+
   // Controles y Elementos de Vista Alta de Conductor
   newDriverForm: document.getElementById("newDriverForm"),
   formDriverName: document.getElementById("formDriverName"),
@@ -522,8 +540,10 @@ function init() {
   setupNavigation();
   setupEventListeners();
   setupHistoryListeners();
+  setupChartInteractivity();
   setupAltaForm();
   populateHistoryDriverSelect();
+  populateChartDriverSelect();
   renderAll();
   startSimulation();
 }
@@ -672,14 +692,6 @@ function renderGridView(drivers) {
         </div>
       </div>
 
-      <div class="driver-latest-event ${driver.status === 'alerta' ? 'event-danger' : ''}">
-        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
-          <circle cx="12" cy="12" r="10"></circle>
-          <line x1="12" y1="8" x2="12" y2="12"></line>
-          <line x1="12" y1="16" x2="12.01" y2="16"></line>
-        </svg>
-        <span><strong>${driver.lastEventTime}:</strong> ${escapeHtml(driver.lastEvent)}</span>
-      </div>
 
       <div class="card-actions">
         <button class="btn-card-detail" data-driver-id="${driver.id}">
@@ -1165,7 +1177,6 @@ function getStatusConfig(status) {
         border: "#a7f3d0",
         textColor: "#065f46",
         bannerTitle: "ESTADO: NORMAL (VIGILANCIA ADECUADA)",
-        bannerDesc: "Frecuencia de parpadeo y atención dentro de los parámetros seguros."
       };
     case "precaucion":
       return {
@@ -1177,7 +1188,6 @@ function getStatusConfig(status) {
         border: "#fde68a",
         textColor: "#92400e",
         bannerTitle: "ESTADO: PRECAUCIÓN (FATIGA LEVE)",
-        bannerDesc: "Se detectan bostezos o pestañeos prolongados. Se recomienda monitoreo cercano."
       };
     case "alerta":
       return {
@@ -1189,7 +1199,6 @@ function getStatusConfig(status) {
         border: "#fecaca",
         textColor: "#991b1b",
         bannerTitle: "ESTADO: ALERTA CRÍTICA (SOMNOLENCIA)",
-        bannerDesc: "Riesgo inminente: Microsueños o pérdida de mirada frontal. Intervención requerida."
       };
     default:
       return {
@@ -1319,7 +1328,9 @@ function switchView(viewName) {
   // Acciones al cambiar de vista
   if (viewName === "historial") {
     populateHistoryDriverSelect();
+    populateChartDriverSelect();
     renderHistory();
+    setTimeout(renderFatigueTimeChart, 60);
   }
 
   if (viewName === "inicio") {
@@ -1331,8 +1342,79 @@ function switchView(viewName) {
 }
 
 // ============================================================================
-// 11. VISTA 2: VER HISTORIAL DE ALERTAS POR CONDUCTOR
+// 11. VISTA 2: VER HISTORIAL DE ALERTAS POR CONDUCTOR Y GRÁFICO DE FATIGA
 // ============================================================================
+const CHART_CONFIG = {
+  hoursLabels: ["1h", "2h", "3h", "4h", "5h", "6h", "7h+"],
+  hoursDescriptions: [
+    "0 a 1 hora",
+    "1 a 2 horas",
+    "2 a 3 horas",
+    "3 a 4 horas",
+    "4 a 5 horas",
+    "5 a 6 horas",
+    "Más de 6 horas"
+  ],
+  colors: {
+    avgLine: "#2563eb",
+    avgFillStart: "rgba(37, 99, 235, 0.16)",
+    driverLine: "#ef4444",
+    driverLineWarning: "#f59e0b",
+    driverLineNormal: "#10b981",
+    grid: "#e2e8f0",
+    text: "#64748b",
+    criticalZone: "rgba(239, 68, 68, 0.04)"
+  }
+};
+
+/**
+ * Retorna la curva de alarmas disparadas en función de las horas continuas al volante (1h a 7h+)
+ * calculada según el perfil fisiológico, estado y puntuación de fatiga del conductor
+ */
+function getDriverAlarmCurve(driver, metric = "all") {
+  let baseFactor = 1.0;
+  if (driver.status === "alerta") {
+    baseFactor = 1.8 + (driver.fatigueScore / 100);
+  } else if (driver.status === "precaucion") {
+    baseFactor = 1.1 + (driver.fatigueScore / 180);
+  } else {
+    baseFactor = 0.5 + (driver.fatigueScore / 220);
+  }
+
+  // Modelos empíricos de incremento de fatiga en transporte
+  const baseCurveAll = [0.3, 0.7, 1.5, 3.4, 5.8, 8.2, 10.6];
+  const baseCurveAlerta = [0.0, 0.1, 0.4, 1.6, 3.5, 5.7, 8.0];
+  const baseCurvePrecaucion = [0.3, 0.6, 1.1, 1.8, 2.3, 2.5, 2.6];
+
+  let template = baseCurveAll;
+  if (metric === "alerta") template = baseCurveAlerta;
+  if (metric === "precaucion") template = baseCurvePrecaucion;
+
+  // Variación determinista según ID del conductor
+  const seed = (driver.id.charCodeAt(driver.id.length - 1) % 5) - 2;
+  const variation = seed * 0.08;
+
+  return template.map(val => {
+    const calc = val * (baseFactor + variation);
+    return Math.max(0, +calc.toFixed(1));
+  });
+}
+
+/**
+ * Calcula el promedio dinámico de la flota promediando las curvas de todos los conductores activos
+ */
+function getFleetAverageCurve(metric = "all") {
+  if (!driversData || driversData.length === 0) return [0, 0, 0, 0, 0, 0, 0];
+  const totals = [0, 0, 0, 0, 0, 0, 0];
+  driversData.forEach(driver => {
+    const curve = getDriverAlarmCurve(driver, metric);
+    curve.forEach((val, i) => {
+      totals[i] += val;
+    });
+  });
+  return totals.map(sum => +(sum / driversData.length).toFixed(1));
+}
+
 function populateHistoryDriverSelect() {
   if (!DOM.historyDriverSelect) return;
   const currentVal = DOM.historyDriverSelect.value;
@@ -1350,12 +1432,33 @@ function populateHistoryDriverSelect() {
   }
 }
 
+function populateChartDriverSelect() {
+  if (!DOM.chartDriverSelect) return;
+  const currentVal = DOM.chartDriverSelect.value;
+  DOM.chartDriverSelect.innerHTML = `<option value="all">Promedio general</option>`;
+
+  driversData.forEach(d => {
+    const opt = document.createElement("option");
+    opt.value = d.id;
+    opt.textContent = `${d.name} (${d.plate})`;
+    DOM.chartDriverSelect.appendChild(opt);
+  });
+
+  if (currentVal && Array.from(DOM.chartDriverSelect.options).some(o => o.value === currentVal)) {
+    DOM.chartDriverSelect.value = currentVal;
+  }
+}
+
 function setupHistoryListeners() {
   if (!DOM.historyDriverSelect) return;
 
+  // Filtro de conductor general en tabla e historial
   DOM.historyDriverSelect.addEventListener("change", (e) => {
     state.historyDriverFilter = e.target.value;
+    state.chartDriverFilter = e.target.value;
+    if (DOM.chartDriverSelect) DOM.chartDriverSelect.value = e.target.value;
     renderHistory();
+    renderFatigueTimeChart();
   });
 
   DOM.historySeveritySelect.addEventListener("change", (e) => {
@@ -1367,17 +1470,40 @@ function setupHistoryListeners() {
     state.historySearchQuery = e.target.value.toLowerCase().trim();
     renderHistory();
   });
+
+  // Selector específico del gráfico
+  if (DOM.chartDriverSelect) {
+    DOM.chartDriverSelect.addEventListener("change", (e) => {
+      state.chartDriverFilter = e.target.value;
+      if (e.target.value !== "all") {
+        state.historyDriverFilter = e.target.value;
+        if (DOM.historyDriverSelect) DOM.historyDriverSelect.value = e.target.value;
+        renderHistory();
+      } else {
+        renderFatigueTimeChart();
+      }
+    });
+  }
+
+  // Píldoras de métricas del gráfico
+  if (DOM.chartMetricPills) {
+    DOM.chartMetricPills.forEach(pill => {
+      pill.addEventListener("click", () => {
+        DOM.chartMetricPills.forEach(p => p.classList.remove("active"));
+        pill.classList.add("active");
+        state.chartMetricFilter = pill.getAttribute("data-metric");
+        renderFatigueTimeChart();
+      });
+    });
+  }
 }
 
 function renderHistory() {
   if (!DOM.historyTableBody) return;
 
   const filtered = historyEvents.filter(evt => {
-    // Filtro conductor
     const matchDriver = (state.historyDriverFilter === "all") || (evt.driverId === state.historyDriverFilter);
-    // Filtro severidad
     const matchSeverity = (state.historySeverityFilter === "all") || (evt.severity === state.historySeverityFilter);
-    // Filtro búsqueda
     const q = state.historySearchQuery;
     const matchSearch = !q ||
       evt.driverName.toLowerCase().includes(q) ||
@@ -1390,7 +1516,7 @@ function renderHistory() {
     return matchDriver && matchSeverity && matchSearch;
   });
 
-  // Métricas de historial
+  // Métricas acumuladas de historial
   const total = filtered.length;
   const microsleeps = filtered.filter(e => e.eventType.toLowerCase().includes("microsueño") || e.severity === "alerta").length;
   const warnings = filtered.filter(e => e.severity === "precaucion").length;
@@ -1405,42 +1531,385 @@ function renderHistory() {
 
   if (filtered.length === 0) {
     DOM.historyEmptyState.style.display = "block";
-    return;
+  } else {
+    DOM.historyEmptyState.style.display = "none";
+    filtered.forEach(evt => {
+      const tr = document.createElement("tr");
+      if (evt.severity === "alerta") tr.className = "row-danger";
+
+      const statusConfig = getStatusConfig(evt.severity);
+
+      tr.innerHTML = `
+        <td><span style="font-family: monospace; font-size: 0.8rem; font-weight: 600;">${escapeHtml(evt.timestamp)}</span></td>
+        <td>
+          <strong>${escapeHtml(evt.driverName)}</strong>
+        </td>
+        <td>
+          <div>${escapeHtml(evt.vehicle)}</div>
+          <span class="plate-pill">${escapeHtml(evt.plate)}</span>
+        </td>
+        <td>${escapeHtml(evt.route)}</td>
+        <td><strong>${escapeHtml(evt.eventType)}</strong></td>
+        <td><span style="font-weight: 700;">${escapeHtml(evt.perclos)}</span></td>
+        <td>${escapeHtml(evt.duration)}</td>
+        <td>
+          <span class="status-badge ${statusConfig.badgeClass}">
+            <span class="status-bullet ${evt.severity === 'alerta' ? 'blink' : ''}"></span>
+            ${statusConfig.label}
+          </span>
+        </td>
+      `;
+
+      DOM.historyTableBody.appendChild(tr);
+    });
   }
 
-  DOM.historyEmptyState.style.display = "none";
+  // Refrescar el gráfico
+  renderFatigueTimeChart();
+}
 
-  filtered.forEach(evt => {
-    const tr = document.createElement("tr");
-    if (evt.severity === "alerta") tr.className = "row-danger";
+/**
+ * Renderizado en HTML5 Canvas de la Curva de Alarmas vs Horas de Manejo
+ */
+function renderFatigueTimeChart() {
+  const canvas = DOM.fatigueTimeCanvas;
+  if (!canvas || !DOM.views.historial || DOM.views.historial.style.display === "none") return;
 
-    const statusConfig = getStatusConfig(evt.severity);
+  const ctx = canvas.getContext("2d");
+  const wrapper = DOM.chartCanvasWrapper;
+  const rect = wrapper.getBoundingClientRect();
 
-    tr.innerHTML = `
-      <td><span style="font-family: monospace; font-size: 0.8rem; font-weight: 600;">${escapeHtml(evt.timestamp)}</span></td>
-      <td>
-        <strong>${escapeHtml(evt.driverName)}</strong>
-      </td>
-      <td>
-        <div>${escapeHtml(evt.vehicle)}</div>
-        <span class="plate-pill">${escapeHtml(evt.plate)}</span>
-      </td>
-      <td>${escapeHtml(evt.route)}</td>
-      <td><strong>${escapeHtml(evt.eventType)}</strong></td>
-      <td><span style="font-weight: 700;">${escapeHtml(evt.perclos)}</span></td>
-      <td>${escapeHtml(evt.duration)}</td>
-      <td>
-        <span class="status-badge ${statusConfig.badgeClass}">
-          <span class="status-bullet ${evt.severity === 'alerta' ? 'blink' : ''}"></span>
-          ${statusConfig.label}
-        </span>
-      </td>
-      <td style="font-size: 0.78rem; color: var(--text-secondary);">
-        ${escapeHtml(evt.actionTaken)}
-      </td>
+  if (rect.width === 0) return;
+
+  // Calibración High-DPI
+  const dpr = window.devicePixelRatio || 1;
+  const displayWidth = rect.width;
+  const displayHeight = rect.height;
+
+  canvas.width = Math.floor(displayWidth * dpr);
+  canvas.height = Math.floor(displayHeight * dpr);
+  canvas.style.width = `${displayWidth}px`;
+  canvas.style.height = `${displayHeight}px`;
+
+  ctx.resetTransform();
+  ctx.scale(dpr, dpr);
+
+  const pad = { top: 25, right: 30, bottom: 50, left: 50 };
+  const chartW = displayWidth - pad.left - pad.right;
+  const chartH = displayHeight - pad.top - pad.bottom;
+
+  // Obtener datos
+  const metric = state.chartMetricFilter || "all";
+  const fleetAvgCurve = getFleetAverageCurve(metric);
+  const selectedDriver = driversData.find(d => d.id === state.chartDriverFilter);
+  const driverCurve = selectedDriver ? getDriverAlarmCurve(selectedDriver, metric) : null;
+
+  // Actualizar leyendas
+  if (DOM.chartFleetCount) DOM.chartFleetCount.textContent = driversData.length;
+  if (selectedDriver) {
+    DOM.legendDriverItem.style.display = "inline-flex";
+    DOM.chartLegendDriverName.textContent = selectedDriver.name;
+  } else {
+    DOM.legendDriverItem.style.display = "none";
+  }
+
+  // Actualizar barra de insights
+  updateChartInsightBar(selectedDriver, fleetAvgCurve, driverCurve);
+
+  // Escala Y
+  const maxFleet = Math.max(...fleetAvgCurve);
+  const maxDriver = driverCurve ? Math.max(...driverCurve) : 0;
+  const rawMax = Math.max(maxFleet, maxDriver, 6);
+  const maxY = Math.ceil((rawMax * 1.15) / 2) * 2;
+
+  const getX = (i) => pad.left + (i / (CHART_CONFIG.hoursLabels.length - 1)) * chartW;
+  const getY = (val) => pad.top + chartH - (val / maxY) * chartH;
+
+  ctx.clearRect(0, 0, displayWidth, displayHeight);
+
+
+  // 2. Cuadrícula horizontal y valores Y
+  const ySteps = 4;
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  ctx.font = "500 11px Inter, system-ui, sans-serif";
+
+  for (let i = 0; i <= ySteps; i++) {
+    const val = (maxY / ySteps) * i;
+    const yPos = getY(val);
+
+    ctx.strokeStyle = CHART_CONFIG.colors.grid;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, yPos);
+    ctx.lineTo(displayWidth - pad.right, yPos);
+    ctx.stroke();
+
+    ctx.fillStyle = CHART_CONFIG.colors.text;
+    ctx.fillText(`${val.toFixed(val % 1 === 0 ? 0 : 1)}`, pad.left - 8, yPos);
+  }
+
+  // Título Y
+  ctx.save();
+  ctx.translate(14, pad.top + chartH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#64748b";
+  ctx.font = "600 11px Inter, system-ui, sans-serif";
+  ctx.fillText("Alarmas disparadas", 0, 0);
+  ctx.restore();
+
+  // 3. Etiquetas X
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.font = "600 11px Inter, system-ui, sans-serif";
+  CHART_CONFIG.hoursLabels.forEach((label, i) => {
+    const xPos = getX(i);
+    ctx.fillText(label, xPos, pad.top + chartH + 8);
+  });
+
+  ctx.fillStyle = "#64748b";
+  ctx.font = "500 11px Inter, system-ui, sans-serif";
+  ctx.fillText("Tiempo de conducción continua (horas)", pad.left + chartW / 2, pad.top + chartH + 26);
+
+  // 4. Curva del Promedio de la Flota
+  drawSmoothLine(ctx, fleetAvgCurve, getX, getY, CHART_CONFIG.colors.avgLine, 2.6, true, CHART_CONFIG.colors.avgFillStart);
+
+  // Puntos del promedio
+  fleetAvgCurve.forEach((val, i) => {
+    const px = getX(i);
+    const py = getY(val);
+    ctx.fillStyle = "#ffffff";
+    ctx.strokeStyle = CHART_CONFIG.colors.avgLine;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(px, py, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  });
+
+  // 5. Curva del Conductor Seleccionado (si se eligió uno)
+  if (selectedDriver && driverCurve) {
+    let driverColor = CHART_CONFIG.colors.driverLine;
+    if (selectedDriver.status === "precaucion") driverColor = CHART_CONFIG.colors.driverLineWarning;
+    if (selectedDriver.status === "normal") driverColor = CHART_CONFIG.colors.driverLineNormal;
+
+    drawSmoothLine(ctx, driverCurve, getX, getY, driverColor, 3.2, false);
+
+    driverCurve.forEach((val, i) => {
+      const px = getX(i);
+      const py = getY(val);
+      ctx.fillStyle = driverColor;
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(px, py, 5.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    });
+  }
+
+  // 6. Crosshair interactivo en hover
+  if (state.chartHoveredIndex !== null && state.chartHoveredIndex >= 0 && state.chartHoveredIndex < CHART_CONFIG.hoursLabels.length) {
+    const idx = state.chartHoveredIndex;
+    const hx = getX(idx);
+
+    ctx.strokeStyle = "rgba(100, 116, 139, 0.4)";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(hx, pad.top);
+    ctx.lineTo(hx, pad.top + chartH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Resaltado de puntos
+    const avgY = getY(fleetAvgCurve[idx]);
+    ctx.fillStyle = CHART_CONFIG.colors.avgLine;
+    ctx.beginPath();
+    ctx.arc(hx, avgY, 6.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (selectedDriver && driverCurve) {
+      let driverColor = selectedDriver.status === "alerta" ? "#ef4444" : selectedDriver.status === "precaucion" ? "#f59e0b" : "#10b981";
+      const drvY = getY(driverCurve[idx]);
+      ctx.fillStyle = driverColor;
+      ctx.beginPath();
+      ctx.arc(hx, drvY, 7.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+function drawSmoothLine(ctx, data, getX, getY, strokeColor, lineWidth, isArea = false, fillStart = null) {
+  if (data.length === 0) return;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(getX(0), getY(data[0]));
+
+  for (let i = 0; i < data.length - 1; i++) {
+    const x0 = getX(i);
+    const y0 = getY(data[i]);
+    const x1 = getX(i + 1);
+    const y1 = getY(data[i + 1]);
+    const mx = (x0 + x1) / 2;
+    ctx.bezierCurveTo(mx, y0, mx, y1, x1, y1);
+  }
+
+  if (isArea && fillStart) {
+    const lastX = getX(data.length - 1);
+    const firstX = getX(0);
+    const bottomY = getY(0);
+    ctx.lineTo(lastX, bottomY);
+    ctx.lineTo(firstX, bottomY);
+    ctx.closePath();
+
+    const gradient = ctx.createLinearGradient(0, 0, 0, bottomY);
+    gradient.addColorStop(0, fillStart);
+    gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+    ctx.fillStyle = gradient;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(getX(0), getY(data[0]));
+    for (let i = 0; i < data.length - 1; i++) {
+      const x0 = getX(i);
+      const y0 = getY(data[i]);
+      const x1 = getX(i + 1);
+      const y1 = getY(data[i + 1]);
+      const mx = (x0 + x1) / 2;
+      ctx.bezierCurveTo(mx, y0, mx, y1, x1, y1);
+    }
+  }
+
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = lineWidth;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.stroke();
+  ctx.restore();
+}
+
+function updateChartInsightBar(driver, fleetAvg, driverCurve) {
+  if (!DOM.chartInsightBar || !DOM.chartInsightBadge || !DOM.chartInsightText) return;
+
+  if (!driver || !driverCurve) {
+    DOM.chartInsightBar.className = "chart-insight-bar";
+    DOM.chartInsightBadge.textContent = "Promedio";
+       return;
+  }
+
+  const diffH4 = driverCurve[3] - fleetAvg[3];
+  const pctDiffH4 = Math.round((diffH4 / (fleetAvg[3] || 1)) * 100);
+
+  if (driver.status === "alerta" || pctDiffH4 > 25) {
+    DOM.chartInsightBar.className = "chart-insight-bar insight-danger";
+    DOM.chartInsightBadge.textContent = "⚠️ Riesgo Elevado";
+    DOM.chartInsightText.innerHTML = `
+      <strong>${escapeHtml(driver.name)} (${driver.plate})</strong> supera el promedio en un <strong>+${pctDiffH4}%</strong> de alarmas a partir de la 4ª hora de viaje. 
+      Se recomienda ordenar parada de descanso obligatoria antes de superar las 3.5h de conducción.
+    `;
+  } else if (driver.status === "precaucion" || pctDiffH4 > 0) {
+    DOM.chartInsightBar.className = "chart-insight-bar insight-warning";
+    DOM.chartInsightBadge.textContent = "⚠️ Fatiga Moderada";
+    DOM.chartInsightText.innerHTML = `
+      <strong>${escapeHtml(driver.name)}</strong> presenta una curva con <strong>${driverCurve[4]} alarmas proyectadas</strong> hacia la 5ª hora. 
+      Mantener monitoreo de parpadeos y bostezos en tiempo real.
+    `;
+  } else {
+    DOM.chartInsightBar.className = "chart-insight-bar";
+    DOM.chartInsightBadge.textContent = "✅ Nivel Óptimo";
+    DOM.chartInsightText.innerHTML = `
+      <strong>${escapeHtml(driver.name)}</strong> mantiene una incidencia de somnolencia un <strong>${Math.abs(pctDiffH4)}% inferior</strong> a la media general de la flota. 
+      Excelente índice de atención en ruta.
+    `;
+  }
+}
+
+function setupChartInteractivity() {
+  const canvas = DOM.fatigueTimeCanvas;
+  const tooltip = DOM.chartTooltip;
+  if (!canvas || !tooltip) return;
+
+  canvas.addEventListener("mousemove", (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const padLeft = 50;
+    const padRight = 30;
+    const chartW = rect.width - padLeft - padRight;
+    const mouseX = e.clientX - rect.left;
+
+    if (mouseX < padLeft - 15 || mouseX > rect.width - padRight + 15) {
+      state.chartHoveredIndex = null;
+      tooltip.style.display = "none";
+      renderFatigueTimeChart();
+      return;
+    }
+
+    const relX = Math.max(0, Math.min(chartW, mouseX - padLeft));
+    const stepRatio = chartW / (CHART_CONFIG.hoursLabels.length - 1);
+    const nearestIndex = Math.round(relX / stepRatio);
+
+    state.chartHoveredIndex = nearestIndex;
+    renderFatigueTimeChart();
+
+    const metric = state.chartMetricFilter || "all";
+    const fleetAvg = getFleetAverageCurve(metric);
+    const selectedDriver = driversData.find(d => d.id === state.chartDriverFilter);
+    const driverCurve = selectedDriver ? getDriverAlarmCurve(selectedDriver, metric) : null;
+
+    const hourLabel = CHART_CONFIG.hoursDescriptions[nearestIndex];
+    const avgVal = fleetAvg[nearestIndex];
+
+    let driverRowHtml = "";
+    let deltaHtml = "";
+
+    if (selectedDriver && driverCurve) {
+      const drvVal = driverCurve[nearestIndex];
+      const diff = +(drvVal - avgVal).toFixed(1);
+      const diffPct = Math.round((diff / (avgVal || 1)) * 100);
+      const isAbove = diff > 0;
+
+      driverRowHtml = `
+        <div class="tooltip-row">
+          <span class="tooltip-label" style="color:#fca5a5;">${escapeHtml(selectedDriver.name)}:</span>
+          <span class="tooltip-val" style="color:#ffffff;">${drvVal} alarmas</span>
+        </div>
+      `;
+
+      deltaHtml = `
+        <div class="tooltip-delta">
+          ${isAbove ? `⚠️ +${diffPct}% respecto a la media de la flota` : `✅ ${diffPct}% bajo la media de flota`}
+        </div>
+      `;
+    }
+
+    tooltip.innerHTML = `
+      <div class="tooltip-title">⏱️ Conducción: ${hourLabel}</div>
+      <div class="tooltip-row">
+        <span class="tooltip-label" style="color:#93c5fd;">Promedio Flota:</span>
+        <span class="tooltip-val">${avgVal} alarmas</span>
+      </div>
+      ${driverRowHtml}
+      ${deltaHtml}
     `;
 
-    DOM.historyTableBody.appendChild(tr);
+    const pointX = padLeft + nearestIndex * stepRatio;
+    tooltip.style.left = `${pointX}px`;
+    tooltip.style.top = `${e.clientY - rect.top}px`;
+    tooltip.style.display = "block";
+  });
+
+  canvas.addEventListener("mouseleave", () => {
+    state.chartHoveredIndex = null;
+    tooltip.style.display = "none";
+    renderFatigueTimeChart();
+  });
+
+  window.addEventListener("resize", () => {
+    if (state.currentAppView === "historial") {
+      renderFatigueTimeChart();
+    }
   });
 }
 
