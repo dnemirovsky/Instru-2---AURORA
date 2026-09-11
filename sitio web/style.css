@@ -2051,3 +2051,193 @@ body {
   gap: 0.75rem;
 }
 
+
+/* =========================================================
+   AURORA — Agregados para el panel conectado a Supabase
+   (login, alta de conductor y ajustes del historial)
+   ========================================================= */
+
+/* ---------- Pantalla de login ---------- */
+.login-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, #0f172a 0%, #1e293b 100%);
+  padding: 24px;
+  z-index: 2000;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 36px 32px 32px;
+}
+
+.login-brand {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.login-brand .brand-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-md);
+  background: var(--primary-light);
+  color: var(--primary-color);
+  margin-bottom: 14px;
+}
+
+.login-brand h1 {
+  font-size: 1.5rem;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
+
+.login-brand p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.login-form .form-group { margin-bottom: 16px; }
+
+.login-form label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.login-submit {
+  width: 100%;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.login-error {
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
+  color: var(--danger-text);
+  font-size: 0.82rem;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 12px;
+}
+
+/* ---------- Sesión en el header ---------- */
+.session-info {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* ---------- Alta de conductor ---------- */
+.form-hint-box {
+  background: var(--primary-light);
+  border: 1px solid #dbeafe;
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin: 8px 0 20px;
+  font-size: 0.85rem;
+}
+
+.form-hint-box p {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  margin-top: 4px;
+}
+
+.alta-resultado {
+  margin-top: 22px;
+  padding: 18px;
+  border: 1px solid var(--normal-border);
+  background: var(--normal-bg);
+  border-radius: var(--radius-md);
+}
+
+.alta-resultado h4 {
+  color: var(--normal-text);
+  margin-bottom: 6px;
+}
+
+.alta-resultado p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.credencial {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  margin-top: 10px;
+}
+
+.credencial span {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.credencial strong {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.95rem;
+}
+
+.credencial-nota {
+  margin-top: 10px;
+  font-size: 0.78rem !important;
+  color: var(--text-muted) !important;
+}
+
+/* ---------- Varios ---------- */
+.feed-empty {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  padding: 14px 4px;
+}
+
+.legend-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.swatch-warning { background: var(--warning-color); }
+.swatch-danger  { background: var(--danger-color); }
+
+.kpi-card.kpi-active {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -2px;
+}
+
+.modal-events { max-height: 320px; overflow-y: auto; }
+
+.dot-normal     { background: var(--normal-color); }
+.dot-precaucion { background: var(--warning-color); }
+.dot-alerta     { background: var(--danger-color); }
+
+.banner-normal     { background: var(--normal-bg);  border-color: var(--normal-border); }
+.banner-precaucion { background: var(--warning-bg); border-color: var(--warning-border); }
+.banner-alerta     { background: var(--danger-bg);  border-color: var(--danger-border); }
+
+.form-hint-inline {
+  display: block;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  margin-top: 5px;
+}
