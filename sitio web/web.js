@@ -31,6 +31,7 @@ const state = {
   empresas: [],
   admins: [],
   adminEnEdicion: null,
+  choferEnEdicion: null,
   pendingAdmins: []
 };
 
@@ -60,7 +61,9 @@ const DOM = {
     historial: $("viewHistorial"),
     alta: $("viewAlta"),
     "superadmin-add": $("viewSuperadminAdd"),
-    "superadmin-edit": $("viewSuperadminEdit")
+    "superadmin-edit": $("viewSuperadminEdit"),
+    "admin-edit": $("viewAdminChoferesEdit"),
+    cuenta: $("viewCuenta")
   },
 
   countTotal: $("countTotal"),
@@ -160,7 +163,27 @@ const DOM = {
   btnCancelEditAdmin: $("btnCancelEditAdmin"),
 
   adminsTableBody: $("adminsTableBody"),
-  adminsEmptyState: $("adminsEmptyState")
+  adminsEmptyState: $("adminsEmptyState"),
+
+  editChoferFormContainer: $("editChoferFormContainer"),
+  editChoferForm: $("editChoferForm"),
+  editChoferNombre: $("editChoferNombre"),
+  editChoferApellido: $("editChoferApellido"),
+  editChoferDni: $("editChoferDni"),
+  editChoferMail: $("editChoferMail"),
+  btnSubmitEditChofer: $("btnSubmitEditChofer"),
+  btnCancelEditChofer: $("btnCancelEditChofer"),
+  choferesEditTableBody: $("choferesEditTableBody"),
+  choferesEditEmptyState: $("choferesEditEmptyState"),
+
+  cuentaForm: $("cuentaForm"),
+  cuentaNombre: $("cuentaNombre"),
+  cuentaApellido: $("cuentaApellido"),
+  cuentaUsuario: $("cuentaUsuario"),
+  cuentaMail: $("cuentaMail"),
+  cuentaNuevaPass: $("cuentaNuevaPass"),
+  cuentaConfirmarPass: $("cuentaConfirmarPass"),
+  btnSubmitCuenta: $("btnSubmitCuenta")
 };
 
 // ============================================================================
@@ -220,7 +243,7 @@ async function entrarAlPanel() {
   // Traemos la ficha del usuario para saber si es admin.
   const { data: perfil, error } = await db
     .from("usuarios")
-    .select("id, rol, nombre, apellido, usuario, empresa_id, empresas(nombre)")
+    .select("id, rol, nombre, apellido, usuario, mail, empresa_id, empresas(nombre)")
     .eq("id", session.user.id)
     .single();
 
@@ -1092,6 +1115,153 @@ async function guardarEditAdmin(e) {
 }
 
 // ============================================================================
+// 9c. ADMIN — gestión de choferes
+// ============================================================================
+function renderChoferesEdit() {
+  const lista = state.usuarios.filter(u => u.rol === "chofer");
+  DOM.choferesEditEmptyState.style.display = lista.length ? "none" : "block";
+  DOM.choferesEditTableBody.innerHTML = "";
+
+  lista.forEach(c => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>
+        <div class="table-driver-col">
+          <div class="mini-avatar">${escapeHtml(iniciales(c.nombre, c.apellido))}</div>
+          <div>
+            <strong>${escapeHtml(c.nombre)} ${escapeHtml(c.apellido)}</strong>
+            <div style="font-size:.72rem;color:var(--text-muted);">${escapeHtml(c.mail)}</div>
+          </div>
+        </div>
+      </td>
+      <td>${escapeHtml(c.usuario)}</td>
+      <td>
+        <span class="status-badge ${c.activo ? "badge-normal" : "badge-danger"}">
+          ${c.activo ? "Activo" : "Dado de baja"}
+        </span>
+      </td>
+      <td class="text-right">
+        <button class="btn-table-action" data-action="editar-chofer" data-id="${c.id}">Editar</button>
+        <button class="btn-table-action" data-action="baja-chofer" data-id="${c.id}">
+          ${c.activo ? "Dar de baja" : "Reactivar"}
+        </button>
+      </td>`;
+    tr.querySelector('[data-action="editar-chofer"]').addEventListener("click", () => editarChofer(c.id));
+    tr.querySelector('[data-action="baja-chofer"]').addEventListener("click", () => alternarBajaChofer(c));
+    DOM.choferesEditTableBody.appendChild(tr);
+  });
+}
+
+function editarChofer(id) {
+  const c = state.usuarios.find(x => x.id === id);
+  if (!c) return;
+
+  state.choferEnEdicion = id;
+  const titulo = document.getElementById("editChoferFormTitle");
+  if (titulo) titulo.textContent = `Editando a ${c.nombre} ${c.apellido}`;
+  DOM.editChoferNombre.value = c.nombre;
+  DOM.editChoferApellido.value = c.apellido;
+  DOM.editChoferDni.value = c.dni;
+  DOM.editChoferMail.value = c.mail;
+  DOM.editChoferFormContainer.style.display = "block";
+  DOM.editChoferForm.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function cancelarEdicionChofer() {
+  state.choferEnEdicion = null;
+  DOM.editChoferForm.reset();
+  DOM.editChoferFormContainer.style.display = "none";
+}
+
+async function alternarBajaChofer(c) {
+  const { error } = await db.from("usuarios").update({ activo: !c.activo }).eq("id", c.id);
+  if (error) {
+    showToast("No se pudo actualizar: " + error.message, "toast-error");
+    return;
+  }
+  showToast(c.activo ? "Conductor dado de baja" : "Conductor reactivado");
+  await cargarDatos();
+  if (state.currentAppView === "admin-edit") renderChoferesEdit();
+}
+
+async function guardarEditChofer(e) {
+  e.preventDefault();
+
+  const nombre = DOM.editChoferNombre.value.trim();
+  const apellido = DOM.editChoferApellido.value.trim();
+  const dni = DOM.editChoferDni.value.trim();
+  const mail = DOM.editChoferMail.value.trim();
+
+  if (!nombre || !apellido || !dni || !mail) {
+    showToast("Completá todos los campos", "toast-error");
+    return;
+  }
+
+  DOM.btnSubmitEditChofer.disabled = true;
+
+  const { error } = await db.from("usuarios")
+    .update({ nombre, apellido, dni, mail })
+    .eq("id", state.choferEnEdicion);
+
+  DOM.btnSubmitEditChofer.disabled = false;
+
+  if (error) {
+    showToast("No se pudo guardar: " + error.message, "toast-error");
+    return;
+  }
+  showToast("Chofer actualizado");
+  cancelarEdicionChofer();
+  await cargarDatos();
+  if (state.currentAppView === "admin-edit") renderChoferesEdit();
+}
+
+// ============================================================================
+// 9d. MI CUENTA
+// ============================================================================
+function renderCuenta() {
+  const p = state.perfil;
+  DOM.cuentaNombre.value = p.nombre || "";
+  DOM.cuentaApellido.value = p.apellido || "";
+  DOM.cuentaUsuario.value = p.usuario || "";
+  DOM.cuentaMail.value = p.mail || "";
+  DOM.cuentaNuevaPass.value = "";
+  DOM.cuentaConfirmarPass.value = "";
+}
+
+async function actualizarCuenta(e) {
+  e.preventDefault();
+  
+  const p1 = DOM.cuentaNuevaPass.value;
+  const p2 = DOM.cuentaConfirmarPass.value;
+  
+  if (!p1) {
+    showToast("Ingresá una contraseña nueva", "toast-error");
+    return;
+  }
+  if (p1 !== p2) {
+    showToast("Las contraseñas no coinciden", "toast-error");
+    return;
+  }
+  
+  DOM.btnSubmitCuenta.disabled = true;
+  DOM.btnSubmitCuenta.textContent = "Actualizando...";
+
+  const { error } = await db.auth.updateUser({ password: p1 });
+
+  DOM.btnSubmitCuenta.disabled = false;
+  DOM.btnSubmitCuenta.textContent = "Actualizar Contraseña";
+
+  if (error) {
+    showToast("Error al actualizar: " + error.message, "toast-error");
+    return;
+  }
+
+  showToast("Contraseña actualizada con éxito");
+  DOM.cuentaNuevaPass.value = "";
+  DOM.cuentaConfirmarPass.value = "";
+}
+
+// ============================================================================
 // 10. VARIOS
 // ============================================================================
 function showToast(mensaje, clase = "toast-success") {
@@ -1114,10 +1284,13 @@ function cambiarVista(vista) {
   DOM.views[vista].style.display = "block";
   DOM.currentViewLabel.textContent =
     { inicio: "Inicio", historial: "Ver historial", alta: "Registrar nuevo conductor",
-      "superadmin-add": "Agregar Admin", "superadmin-edit": "Editar Admins" }[vista];
+      "superadmin-add": "Agregar Admin", "superadmin-edit": "Editar Admins",
+      "admin-edit": "Editar Choferes", cuenta: "Mi Cuenta" }[vista];
   DOM.dropdownItems.forEach(i => i.classList.toggle("active", i.dataset.view === vista));
   DOM.navDropdownMenu.style.display = "none";
   if (vista === "historial") renderHistorial();
+  if (vista === "admin-edit") renderChoferesEdit();
+  if (vista === "cuenta") renderCuenta();
 }
 
 // ============================================================================
@@ -1233,6 +1406,10 @@ function conectarEventos() {
 
   DOM.editAdminForm.addEventListener("submit", guardarEditAdmin);
   DOM.btnCancelEditAdmin.addEventListener("click", cancelarEdicionAdmin);
+  DOM.editChoferForm.addEventListener("submit", guardarEditChofer);
+  DOM.btnCancelEditChofer.addEventListener("click", cancelarEdicionChofer);
+
+  DOM.cuentaForm.addEventListener("submit", actualizarCuenta);
 
   window.addEventListener("resize", () => {
     if (state.currentAppView === "historial") renderHistorial();
