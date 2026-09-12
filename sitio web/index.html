@@ -25,7 +25,6 @@
           </svg>
         </div>
         <h1>AURORA</h1>
-        <p>Panel de administración de flota</p>
       </div>
 
       <form id="loginForm" class="login-form" novalidate>
@@ -104,12 +103,19 @@
               </svg>
               <div class="dropdown-item-text"><strong>Registrar nuevo conductor</strong></div>
             </button>
-            <button class="dropdown-item" data-view="superadmin" data-roles="superadmin">
+            <button class="dropdown-item" data-view="superadmin-add" data-roles="superadmin">
               <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
                 <rect x="3" y="11" width="18" height="10" rx="2"></rect>
                 <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
               </svg>
-              <div class="dropdown-item-text"><strong>Administradores</strong></div>
+              <div class="dropdown-item-text"><strong>Agregar Admin</strong></div>
+            </button>
+            <button class="dropdown-item" data-view="superadmin-edit" data-roles="superadmin">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+              <div class="dropdown-item-text"><strong>Editar Admins</strong></div>
             </button>
           </div>
         </div>
@@ -435,7 +441,6 @@
 
           <div class="form-hint-box">
             <strong>Usuario sugerido:</strong> <span id="usuarioPreview">—</span>
-            <p>Se genera con la primera letra del nombre y el apellido. Si ya existe, el sistema le agrega un número.</p>
           </div>
 
           <div class="form-actions-row">
@@ -454,12 +459,11 @@
       </div>
     </div>
 
-    <!-- ================= Vista 4: Superadmin — administradores ================= -->
-    <div id="viewSuperadmin" class="app-view" style="display: none;">
+    <!-- ================= Vista 4: Superadmin — agregar ================= -->
+    <div id="viewSuperadminAdd" class="app-view" style="display: none;">
       <div class="view-header">
         <div class="view-header-title">
-          <h2>Administradores</h2>
-          <p>Alta, baja y edición de los administradores de cada empresa</p>
+          <h2>Agregar Administradores</h2>
         </div>
       </div>
 
@@ -495,29 +499,113 @@
             </div>
           </div>
 
-          <div class="form-group">
-            <label for="adminEmpresa">Empresa <span class="required-star">*</span></label>
-            <input type="text" id="adminEmpresa" class="form-input" list="listaEmpresas"
-                   placeholder="Ej: Transporte Los Andes" autocomplete="off" required />
-            <datalist id="listaEmpresas"></datalist>
-            <span class="form-hint-inline">Si la empresa no existe todavía, se crea automáticamente.</span>
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label for="adminEmpresa">Empresa <span class="required-star">*</span></label>
+              <input type="text" id="adminEmpresa" class="form-input" list="listaEmpresas"
+                     placeholder="Ej: Transporte Los Andes" autocomplete="off" required />
+              <datalist id="listaEmpresas"></datalist>
+            </div>
+            <div class="form-group">
+              <label for="adminCuit">CUIT Empresa <span class="required-star">*</span></label>
+              <input type="text" id="adminCuit" class="form-input" placeholder="Ej: 30-12345678-9" required />
+            </div>
           </div>
-
           <div class="form-hint-box" id="adminFormHint">
             <strong>Usuario sugerido:</strong> <span id="adminUsuarioPreview">—</span>
-            <p>Se genera con la primera letra del nombre y el apellido. Si ya existe, el sistema le agrega un número.</p>
           </div>
 
           <div class="form-actions-row">
-            <button type="submit" class="btn btn-primary-action btn-submit-form" id="btnSubmitAdmin">
-              Guardar
+            <button type="button" class="btn btn-outline-action" id="btnAddAnotherAdmin">
+              Agregar otro admin
             </button>
-            <button type="button" id="btnCancelAdmin" class="btn btn-outline-action" style="display:none;">
+            <button type="submit" class="btn btn-primary-action btn-submit-form" id="btnSubmitAdmin">
+              Registrar
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div id="pendingAdminsContainer" class="drivers-table-container" style="display: none; margin-top: 20px;">
+        <h3>Administradores a registrar</h3>
+        <table class="drivers-table">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>DNI</th>
+              <th>Mail</th>
+              <th>Empresa</th>
+              <th>CUIT</th>
+              <th class="text-right">Acción</th>
+            </tr>
+          </thead>
+          <tbody id="pendingAdminsTableBody"></tbody>
+        </table>
+      </div>
+
+      <div id="adminResultado" class="alta-resultado" style="display:none; margin-top: 20px;"></div>
+    </div>
+
+    <!-- ================= Vista 5: Superadmin — editar ================= -->
+    <div id="viewSuperadminEdit" class="app-view" style="display: none;">
+      <div class="view-header">
+        <div class="view-header-title">
+          <h2>Editar Administradores</h2>
+        </div>
+      </div>
+
+      <div id="editAdminFormContainer" class="form-container-card" style="display: none; margin-bottom: 20px;">
+        <form id="editAdminForm" class="driver-form" novalidate>
+          <div class="form-section-title">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+            <span id="editAdminFormTitle">Editar administrador</span>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label for="editAdminNombre">Nombre <span class="required-star">*</span></label>
+              <input type="text" id="editAdminNombre" class="form-input" required />
+            </div>
+            <div class="form-group">
+              <label for="editAdminApellido">Apellido <span class="required-star">*</span></label>
+              <input type="text" id="editAdminApellido" class="form-input" required />
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label for="editAdminDni">DNI <span class="required-star">*</span></label>
+              <input type="text" id="editAdminDni" class="form-input" required />
+            </div>
+            <div class="form-group">
+              <label for="editAdminMail">Mail <span class="required-star">*</span></label>
+              <input type="email" id="editAdminMail" class="form-input" required />
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label for="editAdminEmpresa">Empresa <span class="required-star">*</span></label>
+              <input type="text" id="editAdminEmpresa" class="form-input" list="listaEmpresasEdit" autocomplete="off" required />
+              <datalist id="listaEmpresasEdit"></datalist>
+            </div>
+            <div class="form-group">
+              <label for="editAdminCuit">CUIT Empresa <span class="required-star">*</span></label>
+              <input type="text" id="editAdminCuit" class="form-input" placeholder="Ej: 30-12345678-9" required />
+            </div>
+          </div>
+
+          <div class="form-actions-row">
+            <button type="submit" class="btn btn-primary-action btn-submit-form" id="btnSubmitEditAdmin">
+              Guardar cambios
+            </button>
+            <button type="button" id="btnCancelEditAdmin" class="btn btn-outline-action">
               Cancelar edición
             </button>
           </div>
-
-          <div id="adminResultado" class="alta-resultado" style="display:none;"></div>
         </form>
       </div>
 
@@ -598,12 +686,6 @@
   </div>
 
   <div id="toastContainer" class="toast-container" aria-live="polite"></div>
-
-  <footer class="main-footer">
-    <div class="footer-container">
-      <p>Aurora — Detección de somnolencia en conductores</p>
-    </div>
-  </footer>
 
   </div><!-- /appRoot -->
 

@@ -12,9 +12,9 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // 1. ESTADO
 // ============================================================================
 const state = {
-  perfil: null,        // ficha del usuario logueado
-  choferes: [],        // conductores derivados (con su estado calculado)
-  usuarios: [],        // filas crudas de la tabla usuarios
+  perfil: null,
+  choferes: [],
+  usuarios: [],
   viajes: [],
   eventos: [],
 
@@ -30,7 +30,8 @@ const state = {
 
   empresas: [],
   admins: [],
-  adminEnEdicion: null   // id del admin que se está editando, o null si es alta nueva
+  adminEnEdicion: null,
+  pendingAdmins: []
 };
 
 // ============================================================================
@@ -58,7 +59,8 @@ const DOM = {
     inicio: $("viewInicio"),
     historial: $("viewHistorial"),
     alta: $("viewAlta"),
-    superadmin: $("viewSuperadmin")
+    "superadmin-add": $("viewSuperadminAdd"),
+    "superadmin-edit": $("viewSuperadminEdit")
   },
 
   countTotal: $("countTotal"),
@@ -136,11 +138,27 @@ const DOM = {
   adminDni: $("adminDni"),
   adminMail: $("adminMail"),
   adminEmpresa: $("adminEmpresa"),
+  adminCuit: $("adminCuit"),
   listaEmpresas: $("listaEmpresas"),
   adminUsuarioPreview: $("adminUsuarioPreview"),
+  btnAddAnotherAdmin: $("btnAddAnotherAdmin"),
   btnSubmitAdmin: $("btnSubmitAdmin"),
-  btnCancelAdmin: $("btnCancelAdmin"),
+  pendingAdminsContainer: $("pendingAdminsContainer"),
+  pendingAdminsTableBody: $("pendingAdminsTableBody"),
   adminResultado: $("adminResultado"),
+
+  editAdminFormContainer: $("editAdminFormContainer"),
+  editAdminForm: $("editAdminForm"),
+  editAdminNombre: $("editAdminNombre"),
+  editAdminApellido: $("editAdminApellido"),
+  editAdminDni: $("editAdminDni"),
+  editAdminMail: $("editAdminMail"),
+  editAdminEmpresa: $("editAdminEmpresa"),
+  editAdminCuit: $("editAdminCuit"),
+  listaEmpresasEdit: $("listaEmpresasEdit"),
+  btnSubmitEditAdmin: $("btnSubmitEditAdmin"),
+  btnCancelEditAdmin: $("btnCancelEditAdmin"),
+
   adminsTableBody: $("adminsTableBody"),
   adminsEmptyState: $("adminsEmptyState")
 };
@@ -236,7 +254,7 @@ async function entrarAlPanel() {
   arrancarReloj();
 
   if (perfil.rol === "superadmin") {
-    cambiarVista("superadmin");
+    cambiarVista("superadmin-add");
     await cargarDatosSuperadmin();
   } else {
     cambiarVista("inicio");
@@ -808,9 +826,9 @@ async function altaConductor(e) {
 // ============================================================================
 async function cargarDatosSuperadmin() {
   const [empresasRes, adminsRes] = await Promise.all([
-    db.from("empresas").select("id, nombre").eq("activa", true).order("nombre"),
+    db.from("empresas").select("id, nombre, cuit").eq("activa", true).order("nombre"),
     db.from("usuarios")
-      .select("id, nombre, apellido, usuario, dni, mail, activo, empresa_id, empresas(nombre)")
+      .select("id, nombre, apellido, usuario, dni, mail, activo, empresa_id, empresas(nombre, cuit)")
       .eq("rol", "admin")
       .order("apellido")
   ]);
@@ -826,6 +844,7 @@ async function cargarDatosSuperadmin() {
 
   DOM.listaEmpresas.innerHTML = state.empresas
     .map(e => `<option value="${escapeHtml(e.nombre)}"></option>`).join("");
+  DOM.listaEmpresasEdit.innerHTML = DOM.listaEmpresas.innerHTML;
 
   renderAdmins();
 }
@@ -870,28 +889,22 @@ function editarAdmin(id) {
   if (!a) return;
 
   state.adminEnEdicion = id;
-  DOM.adminFormTitle.textContent = `Editando a ${a.nombre} ${a.apellido}`;
-  DOM.adminNombre.value = a.nombre;
-  DOM.adminApellido.value = a.apellido;
-  DOM.adminDni.value = a.dni;
-  DOM.adminMail.value = a.mail;
-  DOM.adminEmpresa.value = a.empresas?.nombre || "";
-  DOM.adminFormHint.style.display = "none";   // editando no se regenera el usuario
-  DOM.btnSubmitAdmin.textContent = "Guardar cambios";
-  DOM.btnCancelAdmin.style.display = "";
-  DOM.adminResultado.style.display = "none";
-  DOM.adminForm.scrollIntoView({ behavior: "smooth", block: "start" });
+  DOM.editAdminFormTitle = $("editAdminFormTitle");
+  if (DOM.editAdminFormTitle) DOM.editAdminFormTitle.textContent = `Editando a ${a.nombre} ${a.apellido}`;
+  DOM.editAdminNombre.value = a.nombre;
+  DOM.editAdminApellido.value = a.apellido;
+  DOM.editAdminDni.value = a.dni;
+  DOM.editAdminMail.value = a.mail;
+  DOM.editAdminEmpresa.value = a.empresas?.nombre || "";
+  DOM.editAdminCuit.value = a.empresas?.cuit || "";
+  DOM.editAdminFormContainer.style.display = "block";
+  DOM.editAdminForm.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function cancelarEdicionAdmin() {
   state.adminEnEdicion = null;
-  DOM.adminForm.reset();
-  DOM.adminFormTitle.textContent = "Nuevo administrador";
-  DOM.adminFormHint.style.display = "";
-  DOM.adminUsuarioPreview.textContent = "—";
-  DOM.btnSubmitAdmin.textContent = "Guardar";
-  DOM.btnCancelAdmin.style.display = "none";
-  DOM.adminResultado.style.display = "none";
+  DOM.editAdminForm.reset();
+  DOM.editAdminFormContainer.style.display = "none";
 }
 
 async function alternarBajaAdmin(a) {
@@ -904,12 +917,7 @@ async function alternarBajaAdmin(a) {
   await cargarDatosSuperadmin();
 }
 
-/**
- * Busca la empresa por nombre (sin distinguir mayúsculas) y si no existe la crea.
- * Devuelve { id, creada } o { error }.
- * Solo el superadmin puede crear empresas: eso lo garantizan las reglas de la base.
- */
-async function resolverEmpresa(nombreEmpresa) {
+async function resolverEmpresa(nombreEmpresa, cuit) {
   const limpio = nombreEmpresa.trim();
   if (!limpio) return { error: "Falta el nombre de la empresa." };
 
@@ -924,7 +932,7 @@ async function resolverEmpresa(nombreEmpresa) {
 
   const { data: nueva, error: errCrear } = await db
     .from("empresas")
-    .insert({ nombre: limpio })
+    .insert({ nombre: limpio, cuit: cuit || null })
     .select("id")
     .single();
 
@@ -932,73 +940,154 @@ async function resolverEmpresa(nombreEmpresa) {
   return { id: nueva.id, creada: true };
 }
 
-async function guardarAdmin(e) {
-  e.preventDefault();
-
+function agregarAdminPendiente() {
   const nombre = DOM.adminNombre.value.trim();
   const apellido = DOM.adminApellido.value.trim();
   const dni = DOM.adminDni.value.trim();
   const mail = DOM.adminMail.value.trim();
-  const nombreEmpresa = DOM.adminEmpresa.value.trim();
+  const empresa = DOM.adminEmpresa.value.trim();
+  const cuit = DOM.adminCuit.value.trim();
 
-  if (!nombre || !apellido || !dni || !mail || !nombreEmpresa) {
+  if (!nombre || !apellido || !dni || !mail || !empresa || !cuit) {
     showToast("Completá todos los campos", "toast-error");
     return;
   }
 
-  DOM.btnSubmitAdmin.disabled = true;
+  state.pendingAdmins.push({ nombre, apellido, dni, mail, empresa, cuit, id: Date.now() });
+  renderPendingAdmins();
+  DOM.adminForm.reset();
+  DOM.adminUsuarioPreview.textContent = "—";
+}
 
-  const empresa = await resolverEmpresa(nombreEmpresa);
+function renderPendingAdmins() {
+  DOM.pendingAdminsContainer.style.display = state.pendingAdmins.length ? "block" : "none";
+  DOM.pendingAdminsTableBody.innerHTML = "";
+  state.pendingAdmins.forEach((a) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${escapeHtml(a.nombre)} ${escapeHtml(a.apellido)}</td>
+      <td>${escapeHtml(a.dni)}</td>
+      <td>${escapeHtml(a.mail)}</td>
+      <td>${escapeHtml(a.empresa)}</td>
+      <td>${escapeHtml(a.cuit)}</td>
+      <td class="text-right">
+        <button type="button" class="btn-table-action" onclick="eliminarAdminPendiente(${a.id})">Eliminar</button>
+      </td>
+    `;
+    DOM.pendingAdminsTableBody.appendChild(tr);
+  });
+}
+
+window.eliminarAdminPendiente = (id) => {
+  state.pendingAdmins = state.pendingAdmins.filter(a => a.id !== id);
+  renderPendingAdmins();
+}
+
+async function guardarAdmin(e) {
+  e.preventDefault();
+
+  const nombre = DOM.adminNombre.value.trim();
+  if (nombre) {
+     const apellido = DOM.adminApellido.value.trim();
+     const dni = DOM.adminDni.value.trim();
+     const mail = DOM.adminMail.value.trim();
+     const empresa = DOM.adminEmpresa.value.trim();
+     const cuit = DOM.adminCuit.value.trim();
+     if (!apellido || !dni || !mail || !empresa || !cuit) {
+        showToast("Completá todos los campos del admin actual", "toast-error");
+        return;
+     }
+     state.pendingAdmins.push({ nombre, apellido, dni, mail, empresa, cuit, id: Date.now() });
+     DOM.adminForm.reset();
+     DOM.adminUsuarioPreview.textContent = "—";
+     renderPendingAdmins();
+  }
+
+  if (state.pendingAdmins.length === 0) {
+    showToast("No hay administradores para registrar", "toast-error");
+    return;
+  }
+
+  DOM.btnSubmitAdmin.disabled = true;
+  DOM.btnSubmitAdmin.textContent = "Registrando...";
+
+  let htmlResult = "<h4>Administradores registrados</h4>";
+  let errores = 0;
+
+  for (const admin of state.pendingAdmins) {
+    const empresa = await resolverEmpresa(admin.empresa, admin.cuit);
+    if (empresa.error) {
+      showToast(`Error empresa de ${admin.nombre}: ${empresa.error}`, "toast-error");
+      errores++;
+      continue;
+    }
+    const empresa_id = empresa.id;
+
+    const { data, error } = await db.functions.invoke("alta-usuario", {
+      body: { nombre: admin.nombre, apellido: admin.apellido, dni: admin.dni, mail: admin.mail, empresa_id }
+    });
+
+    if (error || data?.error) {
+       showToast(`Error con ${admin.nombre}: ` + (data?.error || "No se pudo registrar"), "toast-error");
+       errores++;
+    } else {
+       htmlResult += `
+         <p>${escapeHtml(admin.nombre)} ${escapeHtml(admin.apellido)}:</p>
+         <div class="credencial"><span>Usuario</span><strong>${escapeHtml(data.usuario)}</strong></div>
+         <div class="credencial"><span>Contraseña temporal</span><strong>${escapeHtml(data.password)}</strong></div>`;
+    }
+  }
+
+  DOM.btnSubmitAdmin.disabled = false;
+  DOM.btnSubmitAdmin.textContent = "Registrar";
+
+  if (errores < state.pendingAdmins.length) {
+    DOM.adminResultado.style.display = "block";
+    DOM.adminResultado.innerHTML = htmlResult + `<p class="credencial-nota">Se le pedirá cambiarla en el primer ingreso.</p>`;
+    showToast("Proceso terminado", "toast-success");
+  }
+
+  state.pendingAdmins = [];
+  renderPendingAdmins();
+  await cargarDatosSuperadmin();
+}
+
+async function guardarEditAdmin(e) {
+  e.preventDefault();
+
+  const nombre = DOM.editAdminNombre.value.trim();
+  const apellido = DOM.editAdminApellido.value.trim();
+  const dni = DOM.editAdminDni.value.trim();
+  const mail = DOM.editAdminMail.value.trim();
+  const nombreEmpresa = DOM.editAdminEmpresa.value.trim();
+  const cuit = DOM.editAdminCuit.value.trim();
+
+  if (!nombre || !apellido || !dni || !mail || !nombreEmpresa || !cuit) {
+    showToast("Completá todos los campos", "toast-error");
+    return;
+  }
+
+  DOM.btnSubmitEditAdmin.disabled = true;
+
+  const empresa = await resolverEmpresa(nombreEmpresa, cuit);
   if (empresa.error) {
-    DOM.btnSubmitAdmin.disabled = false;
+    DOM.btnSubmitEditAdmin.disabled = false;
     showToast(empresa.error, "toast-error");
     return;
   }
-  if (empresa.creada) showToast(`Empresa "${nombreEmpresa}" creada`);
-  const empresa_id = empresa.id;
 
-  // --- Editar uno existente: es un simple update, no hace falta la Edge Function ---
-  if (state.adminEnEdicion) {
-    const { error } = await db.from("usuarios")
-      .update({ nombre, apellido, dni, mail, empresa_id })
-      .eq("id", state.adminEnEdicion);
+  const { error } = await db.from("usuarios")
+    .update({ nombre, apellido, dni, mail, empresa_id: empresa.id })
+    .eq("id", state.adminEnEdicion);
 
-    DOM.btnSubmitAdmin.disabled = false;
-    if (error) {
-      showToast("No se pudo guardar: " + error.message, "toast-error");
-      return;
-    }
-    showToast("Administrador actualizado");
-    cancelarEdicionAdmin();
-    await cargarDatosSuperadmin();
+  DOM.btnSubmitEditAdmin.disabled = false;
+
+  if (error) {
+    showToast("No se pudo guardar: " + error.message, "toast-error");
     return;
   }
-
-  // --- Alta nueva: crea usuario + Authentication, vía la función del servidor ---
-  DOM.btnSubmitAdmin.textContent = "Registrando...";
-  const { data, error } = await db.functions.invoke("alta-usuario", {
-    body: { nombre, apellido, dni, mail, empresa_id }
-  });
-
-  DOM.btnSubmitAdmin.disabled = false;
-  DOM.btnSubmitAdmin.textContent = "Guardar";
-
-  if (error || data?.error) {
-    showToast(data?.error || "No se pudo registrar el administrador", "toast-error");
-    return;
-  }
-
-  DOM.adminResultado.style.display = "block";
-  DOM.adminResultado.innerHTML = `
-    <h4>Administrador registrado</h4>
-    <p>Pasale estos datos para que entre a la web:</p>
-    <div class="credencial"><span>Usuario</span><strong>${escapeHtml(data.usuario)}</strong></div>
-    <div class="credencial"><span>Contraseña temporal</span><strong>${escapeHtml(data.password)}</strong></div>
-    <p class="credencial-nota">Se le pedirá cambiarla en el primer ingreso.</p>`;
-
-  DOM.adminForm.reset();
-  DOM.adminUsuarioPreview.textContent = "—";
-  showToast("Administrador dado de alta", "toast-success");
+  showToast("Administrador actualizado");
+  cancelarEdicionAdmin();
   await cargarDatosSuperadmin();
 }
 
@@ -1025,7 +1114,7 @@ function cambiarVista(vista) {
   DOM.views[vista].style.display = "block";
   DOM.currentViewLabel.textContent =
     { inicio: "Inicio", historial: "Ver historial", alta: "Registrar nuevo conductor",
-      superadmin: "Administradores" }[vista];
+      "superadmin-add": "Agregar Admin", "superadmin-edit": "Editar Admins" }[vista];
   DOM.dropdownItems.forEach(i => i.classList.toggle("active", i.dataset.view === vista));
   DOM.navDropdownMenu.style.display = "none";
   if (vista === "historial") renderHistorial();
@@ -1135,13 +1224,15 @@ function conectarEventos() {
     }));
 
   DOM.adminForm.addEventListener("submit", guardarAdmin);
-  DOM.btnCancelAdmin.addEventListener("click", cancelarEdicionAdmin);
+  DOM.btnAddAnotherAdmin.addEventListener("click", agregarAdminPendiente);
   [DOM.adminNombre, DOM.adminApellido].forEach(inp =>
     inp.addEventListener("input", () => {
-      if (state.adminEnEdicion) return;   // editando no se regenera
       DOM.adminUsuarioPreview.textContent =
         sugerirUsuario(DOM.adminNombre.value, DOM.adminApellido.value);
     }));
+
+  DOM.editAdminForm.addEventListener("submit", guardarEditAdmin);
+  DOM.btnCancelEditAdmin.addEventListener("click", cancelarEdicionAdmin);
 
   window.addEventListener("resize", () => {
     if (state.currentAppView === "historial") renderHistorial();
