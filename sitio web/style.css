@@ -2241,3 +2241,15 @@ body {
   color: var(--text-muted);
   margin-top: 5px;
 }
+
+/* Solapas de graficos del historial */
+.history-chart-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.chart-meta-text {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}

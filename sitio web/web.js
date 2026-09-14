@@ -27,6 +27,9 @@ const state = {
   modalChoferId: null,
   modalInterval: null,
 
+  chartTab: "dia",
+  chartTripId: null,
+
   historyDriverFilter: "all",
   historySeverityFilter: "all",
   historySearchQuery: "",
@@ -106,6 +109,12 @@ const DOM = {
   hkpiNivel2: $("hkpiNivel2"),
   hkpiViajes: $("hkpiViajes"),
   hkpiHoras: $("hkpiHoras"),
+  chartTabs: document.querySelectorAll("[data-chart]"),
+  chartCardDia: $("chartCardDia"),
+  chartCardViaje: $("chartCardViaje"),
+  chartTripSelect: $("chartTripSelect"),
+  chartTripMeta: $("chartTripMeta"),
+  tripChart: $("tripChart"),
   eventsChart: $("eventsChart"),
 
   newDriverForm: $("newDriverForm"),
@@ -770,6 +779,152 @@ function renderHistorial() {
   });
 
   dibujarGrafico(filas);
+  armarSelectorDeViajes();
+  dibujarGraficoViaje();
+}
+
+/**
+ * Llena el desplegable de viajes de la solapa "Eventos por viaje".
+ * Respeta el conductor elegido arriba y conserva el viaje que estaba elegido.
+ */
+/**
+ * Grafico de la solapa derecha: cada evento del viaje elegido, ubicado en el
+ * momento en que ocurrio. El eje horizontal es el tiempo del viaje; la altura
+ * y el color indican el nivel.
+ */
+function dibujarGraficoViaje() {
+  const canvas = DOM.tripChart;
+  if (!canvas) return;
+
+  const ctx = canvas.getContext("2d");
+  const ratio = window.devicePixelRatio || 1;
+  const ancho = canvas.parentElement.clientWidth || 800;
+  const alto = 240;
+
+  canvas.width = ancho * ratio;
+  canvas.height = alto * ratio;
+  canvas.style.width = ancho + "px";
+  canvas.style.height = alto + "px";
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  ctx.clearRect(0, 0, ancho, alto);
+
+  const estilo = getComputedStyle(document.body);
+  const colorTexto = estilo.getPropertyValue("--text-muted") || "#888";
+  const colorLinea = "rgba(128,128,128,0.25)";
+  ctx.font = "11px Inter, sans-serif";
+
+  const viaje = state.viajes.find(v => v.id === state.chartTripId);
+  if (!viaje) {
+    if (DOM.chartTripMeta) DOM.chartTripMeta.textContent = "";
+    ctx.fillStyle = colorTexto;
+    ctx.textAlign = "center";
+    ctx.fillText("No hay viajes para mostrar.", ancho / 2, alto / 2);
+    return;
+  }
+
+  const eventos = state.eventos
+    .filter(ev => ev.viaje_id === viaje.id)
+    .sort((a, b) => new Date(a.ocurrido_en) - new Date(b.ocurrido_en));
+
+  const t0 = new Date(viaje.inicio).getTime();
+  const t1 = viaje.fin ? new Date(viaje.fin).getTime() : Date.now();
+  // Piso de un minuto para que un viaje recien arrancado no quede aplastado.
+  const duracion = Math.max(60000, t1 - t0);
+
+  if (DOM.chartTripMeta) {
+    DOM.chartTripMeta.textContent =
+      `${eventos.length} eventos · ${formatoDuracion(duracionHoras(viaje))}` +
+      (viaje.estado === "en_curso" ? " · en curso" : "");
+  }
+
+  const margenIzq = 44, margenDer = 14, margenAbajo = 28, margenArriba = 18;
+  const areaAncho = ancho - margenIzq - margenDer;
+  const areaAlto = alto - margenAbajo - margenArriba;
+  const base = margenArriba + areaAlto;
+
+  const xDe = (ms) => margenIzq + ((ms - t0) / duracion) * areaAncho;
+  const yDe = (nivel) => base - (nivel === 2 ? areaAlto * 0.85 : areaAlto * 0.45);
+
+  // Lineas guia de los dos niveles
+  ctx.strokeStyle = colorLinea;
+  ctx.lineWidth = 1;
+  ctx.fillStyle = colorTexto;
+  [1, 2].forEach(nivel => {
+    const y = yDe(nivel);
+    ctx.beginPath();
+    ctx.moveTo(margenIzq, y);
+    ctx.lineTo(ancho - margenDer, y);
+    ctx.stroke();
+    ctx.textAlign = "right";
+    ctx.fillText(`N${nivel}`, margenIzq - 8, y + 4);
+  });
+
+  // Linea del piso (el recorrido del viaje)
+  ctx.beginPath();
+  ctx.moveTo(margenIzq, base);
+  ctx.lineTo(ancho - margenDer, base);
+  ctx.stroke();
+
+  // Marcas de tiempo
+  ctx.textAlign = "center";
+  for (let i = 0; i <= 4; i++) {
+    const ms = t0 + (duracion * i) / 4;
+    ctx.fillText(formatoHora(new Date(ms).toISOString()), xDe(ms), alto - 10);
+  }
+
+  if (!eventos.length) {
+    ctx.fillStyle = colorTexto;
+    ctx.fillText("Sin eventos en este viaje.", ancho / 2, margenArriba + areaAlto / 2);
+    return;
+  }
+
+  // Un palito con su punto por cada evento
+  eventos.forEach(ev => {
+    const x = xDe(new Date(ev.ocurrido_en).getTime());
+    const y = yDe(ev.nivel);
+    const color = ev.nivel === 2 ? "#ef4444" : "#f59e0b";
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x, base);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+function armarSelectorDeViajes() {
+  if (!DOM.chartTripSelect) return;
+
+  const nombrePorChofer = {};
+  state.usuarios.forEach(u => nombrePorChofer[u.id] = `${u.nombre} ${u.apellido}`);
+
+  const viajes = state.viajes.filter(v =>
+    state.historyDriverFilter === "all" || v.chofer_id === state.historyDriverFilter
+  );
+
+  // Si el viaje elegido ya no esta en la lista, se toma el mas reciente.
+  if (!viajes.some(v => v.id === state.chartTripId)) {
+    state.chartTripId = viajes.length ? viajes[0].id : null;
+  }
+
+  DOM.chartTripSelect.innerHTML = viajes.length
+    ? viajes.map(v => {
+        const etiqueta = `${formatoFechaHora(v.inicio)} · ${tramo(v)}` +
+          (state.historyDriverFilter === "all"
+            ? ` · ${nombrePorChofer[v.chofer_id] || ""}`
+            : "") +
+          (v.estado === "en_curso" ? " · en curso" : "");
+        return `<option value="${v.id}">${escapeHtml(etiqueta)}</option>`;
+      }).join("")
+    : `<option value="">Sin viajes para mostrar</option>`;
+
+  if (state.chartTripId) DOM.chartTripSelect.value = state.chartTripId;
 }
 
 /** Gráfico de barras: eventos por día de los últimos 14 días. */
@@ -1442,6 +1597,21 @@ function cambiarVista(vista) {
 function conectarEventos() {
   DOM.loginForm.addEventListener("submit", iniciarSesion);
   DOM.logoutBtn.addEventListener("click", cerrarSesion);
+
+  DOM.chartTabs.forEach(btn => btn.addEventListener("click", () => {
+    state.chartTab = btn.dataset.chart;
+    DOM.chartTabs.forEach(b => b.classList.toggle("active", b === btn));
+    const porDia = state.chartTab === "dia";
+    DOM.chartCardDia.style.display = porDia ? "" : "none";
+    DOM.chartCardViaje.style.display = porDia ? "none" : "";
+    // El canvas necesita redibujarse: mientras estaba oculto no tenia ancho.
+    renderHistorial();
+  }));
+
+  DOM.chartTripSelect.addEventListener("change", (e) => {
+    state.chartTripId = e.target.value || null;
+    dibujarGraficoViaje();
+  });
 
   DOM.navMenuBtn.addEventListener("click", (e) => {
     e.stopPropagation();

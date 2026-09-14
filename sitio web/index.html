@@ -350,7 +350,12 @@
         </div>
       </div>
 
-      <div class="history-chart-card">
+      <div class="history-chart-tabs">
+        <button class="filter-btn active" data-chart="dia">Eventos por día</button>
+        <button class="filter-btn" data-chart="viaje">Eventos por viaje</button>
+      </div>
+
+      <div class="history-chart-card" id="chartCardDia">
         <div class="chart-card-header">
           <div class="chart-header-left">
             <div class="chart-icon-badge">
@@ -379,6 +384,40 @@
               <span><strong>Nivel 2</strong> · alerta</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div class="history-chart-card" id="chartCardViaje" style="display: none;">
+        <div class="chart-card-header">
+          <div class="chart-header-left">
+            <div class="chart-icon-badge">
+              <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none">
+                <polyline points="3 17 9 11 13 15 21 7"></polyline>
+                <circle cx="9" cy="11" r="1.5"></circle>
+                <circle cx="13" cy="15" r="1.5"></circle>
+              </svg>
+            </div>
+            <div><h3>Eventos a lo largo del viaje</h3></div>
+          </div>
+          <select id="chartTripSelect" class="form-select"></select>
+        </div>
+
+        <div class="chart-canvas-wrapper" id="chartTripWrapper">
+          <canvas id="tripChart"></canvas>
+        </div>
+
+        <div class="chart-footer-meta">
+          <div class="chart-legend">
+            <div class="legend-item">
+              <span class="legend-swatch swatch-warning"></span>
+              <span><strong>Nivel 1</strong> · precaución</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-swatch swatch-danger"></span>
+              <span><strong>Nivel 2</strong> · alerta</span>
+            </div>
+          </div>
+          <span class="chart-meta-text" id="chartTripMeta"></span>
         </div>
       </div>
 
