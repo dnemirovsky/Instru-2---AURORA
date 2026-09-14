@@ -141,13 +141,6 @@
 
       <div class="header-actions">
         <div class="clock-display" id="currentTime">--:--:--</div>
-        <button id="refreshBtn" class="btn btn-outline" title="Volver a cargar los datos">
-          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
-            <polyline points="23 4 23 10 17 10"></polyline>
-            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-          </svg>
-          <span>Actualizar</span>
-        </button>
         <button id="logoutBtn" class="btn btn-outline" title="Cerrar sesión">
           <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
@@ -275,8 +268,8 @@
 
           <div id="emptyState" class="empty-state" style="display: none;">
             <div class="empty-icon">🔍</div>
-            <h3>No se encontraron conductores</h3>
-            <p>Ajustá el término de búsqueda o el filtro de estado.</p>
+            <h3>No hay conductores en viaje</h3>
+            <p>Acá aparecen solo los viajes en curso. Mirá el historial para ver los anteriores.</p>
             <button id="resetFiltersBtn" class="btn btn-secondary">Restablecer filtros</button>
           </div>
         </section>
@@ -350,6 +343,10 @@
         <div class="history-kpi-card hkpi-card-info">
           <span class="hkpi-title">Viajes registrados</span>
           <span class="hkpi-value" id="hkpiViajes">0</span>
+        </div>
+        <div class="history-kpi-card">
+          <span class="hkpi-title">Horas acumuladas</span>
+          <span class="hkpi-value" id="hkpiHoras">0h 00m</span>
         </div>
       </div>
 
@@ -797,11 +794,8 @@
           </div>
         </div>
 
-        <div class="modal-metrics-grid">
-          <div class="metric-box">
-            <span class="metric-title">Viajes registrados</span>
-            <span class="metric-value" id="modalViajes">0</span>
-          </div>
+        <!-- Conteo de eventos del viaje que esta pasando ahora -->
+        <div class="modal-metrics-grid" id="modalMetrics">
           <div class="metric-box">
             <span class="metric-title">Eventos nivel 1</span>
             <span class="metric-value text-warning" id="modalNivel1">0</span>
@@ -810,14 +804,10 @@
             <span class="metric-title">Eventos nivel 2</span>
             <span class="metric-value text-danger" id="modalNivel2">0</span>
           </div>
-          <div class="metric-box">
-            <span class="metric-title">Horas acumuladas</span>
-            <span class="metric-value" id="modalHoras">0h</span>
-          </div>
         </div>
 
-        <h4 class="section-subtitle">Últimos viajes</h4>
-        <div class="modal-trip-info" id="modalTripsList"></div>
+        <!-- Datos del viaje en curso -->
+        <div id="modalEnCurso"></div>
 
         <h4 class="section-subtitle">Últimos eventos</h4>
         <div class="events-list modal-events" id="modalEventsList"></div>

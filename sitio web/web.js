@@ -24,6 +24,9 @@ const state = {
   activeView: "grid",
   clockInterval: null,
 
+  modalChoferId: null,
+  modalInterval: null,
+
   historyDriverFilter: "all",
   historySeverityFilter: "all",
   historySearchQuery: "",
@@ -50,7 +53,6 @@ const DOM = {
   appRoot: $("appRoot"),
   sessionInfo: $("sessionInfo"),
   logoutBtn: $("logoutBtn"),
-  refreshBtn: $("refreshBtn"),
 
   navMenuBtn: $("navMenuBtn"),
   navDropdownMenu: $("navDropdownMenu"),
@@ -103,6 +105,7 @@ const DOM = {
   hkpiNivel1: $("hkpiNivel1"),
   hkpiNivel2: $("hkpiNivel2"),
   hkpiViajes: $("hkpiViajes"),
+  hkpiHoras: $("hkpiHoras"),
   eventsChart: $("eventsChart"),
 
   newDriverForm: $("newDriverForm"),
@@ -117,6 +120,8 @@ const DOM = {
 
   driverModal: $("driverModal"),
   closeModalBtn: $("closeModalBtn"),
+  modalEnCurso: $("modalEnCurso"),
+  modalMetrics: $("modalMetrics"),
   modalAvatar: $("modalAvatar"),
   modalDriverName: $("modalDriverName"),
   modalDriverMeta: $("modalDriverMeta"),
@@ -124,11 +129,8 @@ const DOM = {
   modalStatusDot: $("modalStatusDot"),
   modalStatusText: $("modalStatusText"),
   modalStatusDesc: $("modalStatusDesc"),
-  modalViajes: $("modalViajes"),
   modalNivel1: $("modalNivel1"),
   modalNivel2: $("modalNivel2"),
-  modalHoras: $("modalHoras"),
-  modalTripsList: $("modalTripsList"),
   modalEventsList: $("modalEventsList"),
 
   currentTime: $("currentTime"),
@@ -282,6 +284,7 @@ async function entrarAlPanel() {
   } else {
     cambiarVista("inicio");
     await cargarDatos();
+    escucharCambios();
   }
 }
 
@@ -291,8 +294,78 @@ function mostrarLogin() {
 }
 
 async function cerrarSesion() {
+  dejarDeEscuchar();
   await db.auth.signOut();
   location.reload();
+}
+
+// ============================================================================
+// 3.b TIEMPO REAL
+// ============================================================================
+// Supabase avisa por un websocket cada vez que cambia una fila de viajes o
+// eventos. Cuando llega un aviso se recarga todo y se redibuja (incluida la
+// ficha del chofer, si esta abierta).
+//
+// Dos cuidados: no se recarga en cada aviso sino una vez por segundo como
+// mucho, y si el websocket no engancha arranca un respaldo cada 20 segundos.
+
+let canalVivo = null;
+let recargaPendiente = null;
+let respaldo = null;
+
+function recargarPronto() {
+  if (recargaPendiente) return;
+  recargaPendiente = setTimeout(async () => {
+    recargaPendiente = null;
+    if (document.visibilityState === "hidden") return;
+    await cargarDatos();
+  }, 1000);
+}
+
+function escucharCambios() {
+  if (canalVivo) return;
+
+  canalVivo = db
+    .channel("panel-admin")
+    .on("postgres_changes", { event: "*", schema: "public", table: "eventos" }, recargarPronto)
+    .on("postgres_changes", { event: "*", schema: "public", table: "viajes" }, recargarPronto)
+    .subscribe((estado) => {
+      if (estado === "SUBSCRIBED") {
+        detenerRespaldo();
+      } else if (estado === "CHANNEL_ERROR" || estado === "TIMED_OUT" || estado === "CLOSED") {
+        arrancarRespaldo();
+      }
+    });
+
+  setTimeout(() => {
+    if (!canalVivo || canalVivo.state !== "joined") arrancarRespaldo();
+  }, 8000);
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && state.perfil) cargarDatos();
+  });
+}
+
+function arrancarRespaldo() {
+  if (respaldo) return;
+  respaldo = setInterval(() => {
+    if (document.visibilityState === "visible" && state.perfil) cargarDatos();
+  }, 20000);
+}
+
+function detenerRespaldo() {
+  if (respaldo) {
+    clearInterval(respaldo);
+    respaldo = null;
+  }
+}
+
+function dejarDeEscuchar() {
+  detenerRespaldo();
+  if (canalVivo) {
+    db.removeChannel(canalVivo);
+    canalVivo = null;
+  }
 }
 
 // ============================================================================
@@ -438,18 +511,21 @@ function renderAll() {
   renderDrivers();
   renderFeed();
   renderHistorial();
+  // Si la ficha de un chofer esta abierta, se redibuja con los datos nuevos.
+  if (state.modalChoferId) pintarModal();
 }
 
 function renderKPIs() {
-  const total = state.choferes.length;
-  const enRuta = state.choferes.filter(c => c.viajeActual).length;
-  const n = state.choferes.filter(c => c.status === "normal").length;
-  const p = state.choferes.filter(c => c.status === "precaucion").length;
-  const a = state.choferes.filter(c => c.status === "alerta").length;
+  // El panel principal mira solo la flota que esta manejando ahora.
+  const enViaje = state.choferes.filter(c => c.viajeActual);
+  const total = enViaje.length;
+  const n = enViaje.filter(c => c.status === "normal").length;
+  const p = enViaje.filter(c => c.status === "precaucion").length;
+  const a = enViaje.filter(c => c.status === "alerta").length;
   const pct = (x) => total ? Math.round((x / total) * 100) + "%" : "0%";
 
   DOM.countTotal.textContent = total;
-  DOM.countEnRuta.textContent = `${enRuta} en viaje`;
+  DOM.countEnRuta.textContent = "en viaje ahora";
   DOM.countNormal.textContent = n;
   DOM.countWarning.textContent = p;
   DOM.countDanger.textContent = a;
@@ -465,6 +541,9 @@ function renderKPIs() {
 function choferesFiltrados() {
   const q = state.searchQuery.toLowerCase();
   return state.choferes.filter(c => {
+    // Solo conductores manejando ahora: el panel es para seguir la flota
+    // en vivo, el resto se mira en el historial.
+    if (!c.viajeActual) return false;
     const coincideEstado = state.activeFilter === "all" || c.status === state.activeFilter;
     const coincideTexto = !q ||
       c.nombreCompleto.toLowerCase().includes(q) ||
@@ -578,12 +657,21 @@ function renderFeed() {
   const nombrePorChofer = {};
   state.usuarios.forEach(u => nombrePorChofer[u.id] = `${u.nombre} ${u.apellido}`);
 
-  const ultimos = state.eventos.slice(0, 15);
+  // Solo eventos de viajes abiertos: cuando el chofer finaliza el viaje,
+  // sus alertas salen de esta lista y quedan en el historial.
+  const ultimos = state.eventos
+    .filter(ev => {
+      const viaje = porViaje[ev.viaje_id];
+      return viaje && viaje.estado === "en_curso";
+    })
+    .slice(0, 15);
+
   DOM.eventsCount.textContent = ultimos.length;
   DOM.eventsList.innerHTML = "";
 
   if (!ultimos.length) {
-    DOM.eventsList.innerHTML = `<p class="feed-empty">Todavía no hay eventos registrados.</p>`;
+    DOM.eventsList.innerHTML =
+      `<p class="feed-empty">No hay alertas en los viajes en curso.</p>`;
     return;
   }
 
@@ -649,7 +737,21 @@ function renderHistorial() {
   DOM.hkpiTotal.textContent = filas.length;
   DOM.hkpiNivel1.textContent = filas.filter(f => f.nivel === 1).length;
   DOM.hkpiNivel2.textContent = filas.filter(f => f.nivel === 2).length;
-  DOM.hkpiViajes.textContent = state.viajes.length;
+  // Si hay un conductor elegido, estos dos numeros son de el; si no, de toda
+  // la flota.
+  const choferElegido = state.historyDriverFilter === "all"
+    ? null
+    : state.choferes.find(c => c.id === state.historyDriverFilter);
+
+  DOM.hkpiViajes.textContent = choferElegido
+    ? choferElegido.viajes.length
+    : state.viajes.length;
+
+  DOM.hkpiHoras.textContent = formatoDuracion(
+    choferElegido
+      ? choferElegido.horasTotales
+      : state.viajes.reduce((acc, v) => acc + duracionHoras(v), 0)
+  );
 
   DOM.historyEmptyState.style.display = filas.length ? "none" : "block";
   DOM.historyTableBody.innerHTML = "";
@@ -750,8 +852,26 @@ function dibujarGrafico(filas) {
 // 8. MODAL DE DETALLE
 // ============================================================================
 function abrirModal(choferId) {
-  const c = state.choferes.find(x => x.id === choferId);
-  if (!c) return;
+  state.modalChoferId = choferId;
+  if (!pintarModal()) return;
+
+  DOM.driverModal.style.display = "flex";
+  DOM.driverModal.setAttribute("aria-hidden", "false");
+
+  // Mientras la ficha este abierta se repinta sola cada 30 segundos, asi la
+  // duracion del viaje en curso no se queda congelada. Los eventos nuevos
+  // llegan antes, por el aviso de tiempo real.
+  clearInterval(state.modalInterval);
+  state.modalInterval = setInterval(pintarModal, 30000);
+}
+
+/**
+ * Llena la ficha del chofer con lo que hay ahora en state.
+ * Se usa al abrirla y cada vez que llegan datos nuevos.
+ */
+function pintarModal() {
+  const c = state.choferes.find(x => x.id === state.modalChoferId);
+  if (!c) return false;
 
   const cfg = getStatusConfig(c.status);
   DOM.modalAvatar.textContent = iniciales(c.nombre, c.apellido);
@@ -764,35 +884,58 @@ function abrirModal(choferId) {
   DOM.modalStatusDot.className = `status-indicator-dot dot-${c.status}`;
   DOM.modalStatusBanner.className = `modal-status-banner banner-${c.status}`;
 
-  DOM.modalViajes.textContent = c.viajes.length;
-  DOM.modalNivel1.textContent = c.nivel1;
-  DOM.modalNivel2.textContent = c.nivel2;
-  DOM.modalHoras.textContent = formatoDuracion(c.horasTotales);
+  const v = c.viajeActual;
 
-  DOM.modalTripsList.innerHTML = c.viajes.length
-    ? c.viajes.slice(0, 5).map(v => `
-        <div class="trip-item">
-          <span class="trip-key">${formatoFechaHora(v.inicio)}</span>
-          <span class="trip-val">${escapeHtml(tramo(v))} · ${formatoDuracion(duracionHoras(v))} · ${v.estado}</span>
-        </div>`).join("")
-    : `<p class="feed-empty">Sin viajes registrados.</p>`;
+  // Eventos SOLO del viaje en curso: nada de sumar viajes anteriores.
+  const eventos = v
+    ? c.eventosTotales
+        .filter(ev => ev.viaje_id === v.id)
+        .sort((a, b) => new Date(b.ocurrido_en) - new Date(a.ocurrido_en))
+    : [];
 
-  DOM.modalEventsList.innerHTML = c.eventosTotales.length
-    ? c.eventosTotales.slice(0, 10).map(ev => `
-        <div class="event-item ${ev.nivel === 2 ? "event-item-danger" : "event-item-warning"}">
-          <span class="event-time">${formatoHora(ev.ocurrido_en)}</span>
-          <div class="event-content">
-            <strong>${nombreTipo(ev.tipo)}</strong>
-            <p>Nivel ${ev.nivel}${ev.valor ? ` · ${ev.valor} ms` : ""} · ${formatoFechaHora(ev.ocurrido_en)}</p>
-          </div>
-        </div>`).join("")
-    : `<p class="feed-empty">Sin eventos registrados.</p>`;
+  DOM.modalMetrics.style.display = v ? "" : "none";
+  DOM.modalNivel1.textContent = eventos.filter(e => e.nivel === 1).length;
+  DOM.modalNivel2.textContent = eventos.filter(e => e.nivel === 2).length;
 
-  DOM.driverModal.style.display = "flex";
-  DOM.driverModal.setAttribute("aria-hidden", "false");
+  DOM.modalEnCurso.innerHTML = v ? `
+    <h4 class="section-subtitle">Viaje en curso</h4>
+    <div class="modal-trip-info">
+      <div class="trip-item">
+        <span class="trip-key">Recorrido</span>
+        <span class="trip-val">${escapeHtml(tramo(v))}</span>
+      </div>
+      <div class="trip-item">
+        <span class="trip-key">Arranco</span>
+        <span class="trip-val">${formatoFechaHora(v.inicio)}</span>
+      </div>
+      <div class="trip-item">
+        <span class="trip-key">Lleva manejando</span>
+        <span class="trip-val">${formatoDuracion(duracionHoras(v))}</span>
+      </div>
+    </div>` : `<p class="feed-empty">Este conductor no tiene un viaje en curso.</p>`;
+
+  DOM.modalEventsList.innerHTML = eventos.length
+    ? eventos.slice(0, 20).map(itemEvento).join("")
+    : `<p class="feed-empty">Todavia no hubo eventos en este viaje.</p>`;
+
+  return true;
+}
+
+function itemEvento(ev) {
+  return `
+    <div class="event-item ${ev.nivel === 2 ? "event-item-danger" : "event-item-warning"}">
+      <span class="event-time">${formatoHora(ev.ocurrido_en)}</span>
+      <div class="event-content">
+        <strong>${nombreTipo(ev.tipo)}</strong>
+        <p>Nivel ${ev.nivel}${ev.valor ? ` · ${ev.valor} ms` : ""} · ${formatoFechaHora(ev.ocurrido_en)}</p>
+      </div>
+    </div>`;
 }
 
 function cerrarModal() {
+  state.modalChoferId = null;
+  clearInterval(state.modalInterval);
+  state.modalInterval = null;
   DOM.driverModal.style.display = "none";
   DOM.driverModal.setAttribute("aria-hidden", "true");
 }
@@ -1299,10 +1442,6 @@ function cambiarVista(vista) {
 function conectarEventos() {
   DOM.loginForm.addEventListener("submit", iniciarSesion);
   DOM.logoutBtn.addEventListener("click", cerrarSesion);
-  DOM.refreshBtn.addEventListener("click", async () => {
-    await cargarDatos();
-    showToast("Datos actualizados");
-  });
 
   DOM.navMenuBtn.addEventListener("click", (e) => {
     e.stopPropagation();
