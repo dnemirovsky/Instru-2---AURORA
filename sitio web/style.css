@@ -2133,6 +2133,50 @@ body {
   margin-bottom: 12px;
 }
 
+/* ---------- Olvidé mi contraseña ---------- */
+.login-link {
+  display: block;
+  width: 100%;
+  margin-top: 14px;
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-align: center;
+}
+
+.login-link:hover { text-decoration: underline; }
+
+.login-explicacion {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 18px;
+  line-height: 1.45;
+}
+
+.login-ok {
+  background: var(--normal-bg);
+  border: 1px solid var(--normal-border);
+  color: var(--normal-text);
+  font-size: 0.82rem;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 12px;
+  line-height: 1.45;
+}
+
+/* ---------- Cambio de contraseña obligatorio ---------- */
+.cuenta-aviso {
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+  color: var(--warning-text);
+  font-size: 0.88rem;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 20px;
+}
+
 /* ---------- Sesión en el header ---------- */
 .session-info {
   font-size: 0.82rem;

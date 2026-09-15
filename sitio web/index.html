@@ -43,6 +43,35 @@
         <button type="submit" id="loginBtn" class="btn btn-primary-action login-submit">
           Ingresar
         </button>
+
+        <button type="button" id="linkOlvide" class="login-link">¿Olvidaste tu contraseña?</button>
+      </form>
+
+      <!-- Olvidé mi contraseña: se muestra en lugar del login -->
+      <form id="recuperarForm" class="login-form" style="display:none;" novalidate>
+        <p class="login-explicacion">
+          Ingresá tu usuario y el mail con el que te dieron de alta.
+          Si coinciden, te mandamos una contraseña temporal nueva.
+        </p>
+        <div class="form-group">
+          <label for="recuperarUser">Usuario</label>
+          <input type="text" id="recuperarUser" class="form-input" autocomplete="username"
+                 placeholder="Ej: mgomez" required />
+        </div>
+        <div class="form-group">
+          <label for="recuperarMail">Mail</label>
+          <input type="email" id="recuperarMail" class="form-input" autocomplete="email"
+                 placeholder="nombre@ejemplo.com" required />
+        </div>
+
+        <div id="recuperarError" class="login-error" style="display:none;"></div>
+        <div id="recuperarOk" class="login-ok" style="display:none;"></div>
+
+        <button type="submit" id="recuperarBtn" class="btn btn-primary-action login-submit">
+          Enviar contraseña nueva
+        </button>
+
+        <button type="button" id="linkVolverLogin" class="login-link">Volver al ingreso</button>
       </form>
     </div>
   </div>
@@ -758,6 +787,11 @@
       </div>
 
       <div class="form-container-card">
+        <!-- Aviso cuando la persona entró con una contraseña temporal -->
+        <div id="cuentaAviso" class="cuenta-aviso" style="display:none;">
+          Estás usando una contraseña temporal. Para seguir usando el panel,
+          elegí una contraseña nueva.
+        </div>
         <form id="cuentaForm" class="driver-form" novalidate>
           <div class="form-section-title">
             Datos registrados

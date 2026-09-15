@@ -53,6 +53,14 @@ const DOM = {
   loginPass: $("loginPass"),
   loginError: $("loginError"),
   loginBtn: $("loginBtn"),
+  linkOlvide: $("linkOlvide"),
+  recuperarForm: $("recuperarForm"),
+  recuperarUser: $("recuperarUser"),
+  recuperarMail: $("recuperarMail"),
+  recuperarError: $("recuperarError"),
+  recuperarOk: $("recuperarOk"),
+  recuperarBtn: $("recuperarBtn"),
+  linkVolverLogin: $("linkVolverLogin"),
   appRoot: $("appRoot"),
   sessionInfo: $("sessionInfo"),
   logoutBtn: $("logoutBtn"),
@@ -188,6 +196,7 @@ const DOM = {
   choferesEditEmptyState: $("choferesEditEmptyState"),
 
   cuentaForm: $("cuentaForm"),
+  cuentaAviso: $("cuentaAviso"),
   cuentaNombre: $("cuentaNombre"),
   cuentaApellido: $("cuentaApellido"),
   cuentaUsuario: $("cuentaUsuario"),
@@ -254,7 +263,7 @@ async function entrarAlPanel() {
   // Traemos la ficha del usuario para saber si es admin.
   const { data: perfil, error } = await db
     .from("usuarios")
-    .select("id, rol, nombre, apellido, usuario, mail, empresa_id, empresas(nombre)")
+    .select("id, rol, nombre, apellido, usuario, mail, empresa_id, debe_cambiar_password, empresas(nombre)")
     .eq("id", session.user.id)
     .single();
 
@@ -295,11 +304,95 @@ async function entrarAlPanel() {
     await cargarDatos();
     escucharCambios();
   }
+
+  // Si entró con una contraseña temporal, no puede usar el panel hasta cambiarla.
+  if (perfil.debe_cambiar_password) forzarCambioPassword();
+}
+
+/** Vista inicial de cada rol. */
+function vistaInicial() {
+  return state.perfil?.rol === "superadmin" ? "superadmin-add" : "inicio";
+}
+
+/** Deja a la persona en "Mi cuenta", sin menú, hasta que cambie la contraseña. */
+function forzarCambioPassword() {
+  cambiarVista("cuenta");
+  DOM.navMenuBtn.style.display = "none";
+  DOM.cuentaAviso.style.display = "block";
+}
+
+function liberarNavegacion() {
+  DOM.navMenuBtn.style.display = "";
+  DOM.cuentaAviso.style.display = "none";
 }
 
 function mostrarLogin() {
   DOM.appRoot.style.display = "none";
   DOM.loginScreen.style.display = "flex";
+  mostrarRecuperar(false);
+}
+
+// ============================================================================
+// 3.a OLVIDÉ MI CONTRASEÑA
+// ============================================================================
+// La persona pone su usuario y su mail de contacto. La Edge Function
+// "recuperar-password" controla que coincidan y, si es así, le manda una
+// contraseña temporal nueva. Se llama sin sesión, solo con la clave pública.
+
+/** Alterna entre el formulario de login y el de recuperar contraseña. */
+function mostrarRecuperar(mostrar) {
+  DOM.loginForm.style.display = mostrar ? "none" : "block";
+  DOM.recuperarForm.style.display = mostrar ? "block" : "none";
+  DOM.loginError.style.display = "none";
+  DOM.recuperarError.style.display = "none";
+  DOM.recuperarOk.style.display = "none";
+  if (mostrar) {
+    // Si ya había escrito el usuario en el login, se lo dejamos puesto.
+    DOM.recuperarUser.value = DOM.loginUser.value.trim();
+    DOM.recuperarMail.value = "";
+    (DOM.recuperarUser.value ? DOM.recuperarMail : DOM.recuperarUser).focus();
+  }
+}
+
+async function pedirPasswordNueva(e) {
+  e.preventDefault();
+  DOM.recuperarError.style.display = "none";
+  DOM.recuperarOk.style.display = "none";
+
+  const usuario = DOM.recuperarUser.value.trim().toLowerCase();
+  const mail = DOM.recuperarMail.value.trim().toLowerCase();
+
+  if (!usuario || !mail) {
+    DOM.recuperarError.textContent = "Completá tu usuario y tu mail.";
+    DOM.recuperarError.style.display = "block";
+    return;
+  }
+
+  DOM.recuperarBtn.disabled = true;
+  DOM.recuperarBtn.textContent = "Enviando...";
+
+  let texto, ok;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/recuperar-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ usuario, mail })
+    });
+    const data = await res.json().catch(() => ({}));
+    ok = res.ok && !data.error;
+    texto = ok ? data.mensaje : (data.error || `No se pudo enviar el pedido (código ${res.status}).`);
+  } catch (err) {
+    console.error("Error al pedir contraseña nueva:", err);
+    ok = false;
+    texto = "No hay conexión. Probá de nuevo en un rato.";
+  }
+
+  DOM.recuperarBtn.disabled = false;
+  DOM.recuperarBtn.textContent = "Enviar contraseña nueva";
+
+  const caja = ok ? DOM.recuperarOk : DOM.recuperarError;
+  caja.textContent = texto;
+  caja.style.display = "block";
 }
 
 async function cerrarSesion() {
@@ -1131,7 +1224,7 @@ async function altaConductor(e) {
   DOM.altaResultado.style.display = "block";
   DOM.altaResultado.innerHTML = `
     <h4>Conductor registrado</h4>
-    <p>Pasale estos datos para que entre a la app:</p>
+    <p>${data.mail_enviado ? "Le mandamos estos datos por mail. Por las dudas, quedan acá:" : "No se pudo mandar el mail. Pasale estos datos a mano:"}</p>
     <div class="credencial"><span>Usuario</span><strong>${escapeHtml(data.usuario)}</strong></div>
     <div class="credencial"><span>Contraseña temporal</span><strong>${escapeHtml(data.password)}</strong></div>
     <p class="credencial-nota">Se le pedirá cambiarla en el primer ingreso.</p>`;
@@ -1353,7 +1446,7 @@ async function guardarAdmin(e) {
        errores++;
     } else {
        htmlResult += `
-         <p>${escapeHtml(admin.nombre)} ${escapeHtml(admin.apellido)}:</p>
+         <p>${escapeHtml(admin.nombre)} ${escapeHtml(admin.apellido)} ${data.mail_enviado ? "(mail enviado)" : "(no se pudo mandar el mail)"}:</p>
          <div class="credencial"><span>Usuario</span><strong>${escapeHtml(data.usuario)}</strong></div>
          <div class="credencial"><span>Contraseña temporal</span><strong>${escapeHtml(data.password)}</strong></div>`;
     }
@@ -1554,9 +1647,20 @@ async function actualizarCuenta(e) {
     return;
   }
 
+  // Marca en la ficha que ya no tiene una contraseña temporal. Se hace con
+  // una función de la base porque nadie puede editar su propia fila.
+  const { error: errMarca } = await db.rpc("marcar_password_cambiada");
+  if (errMarca) console.error("No se pudo marcar la contraseña como cambiada:", errMarca);
+
   showToast("Contraseña actualizada con éxito");
   DOM.cuentaNuevaPass.value = "";
   DOM.cuentaConfirmarPass.value = "";
+
+  if (state.perfil.debe_cambiar_password) {
+    state.perfil.debe_cambiar_password = false;
+    liberarNavegacion();
+    cambiarVista(vistaInicial());
+  }
 }
 
 // ============================================================================
@@ -1596,6 +1700,9 @@ function cambiarVista(vista) {
 // ============================================================================
 function conectarEventos() {
   DOM.loginForm.addEventListener("submit", iniciarSesion);
+  DOM.linkOlvide.addEventListener("click", () => mostrarRecuperar(true));
+  DOM.linkVolverLogin.addEventListener("click", () => mostrarRecuperar(false));
+  DOM.recuperarForm.addEventListener("submit", pedirPasswordNueva);
   DOM.logoutBtn.addEventListener("click", cerrarSesion);
 
   DOM.chartTabs.forEach(btn => btn.addEventListener("click", () => {
