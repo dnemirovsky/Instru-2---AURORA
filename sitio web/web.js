@@ -207,6 +207,58 @@ const DOM = {
 };
 
 // ============================================================================
+// 2.a VER / OCULTAR CONTRASEÑA (el "ojito")
+// ============================================================================
+// Recorre todos los campos de contraseña de la página y le agrega a cada uno
+// un botón para mostrar u ocultar lo que se escribió. Se hace desde acá y no
+// en el HTML para que valga para todos los campos de una sola vez, incluidos
+// los que se agreguen más adelante.
+
+const SVG_OJO = `<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor"
+  stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+  <circle cx="12" cy="12" r="3"></circle></svg>`;
+
+const SVG_OJO_TACHADO = `<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor"
+  stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"></path>
+  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"></path>
+  <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"></path>
+  <line x1="1" y1="1" x2="23" y2="23"></line></svg>`;
+
+function activarOjosDePassword(raiz = document) {
+  raiz.querySelectorAll('input[type="password"]').forEach(input => {
+    if (input.dataset.conOjo) return;          // no duplicar si ya lo tiene
+    input.dataset.conOjo = "1";
+
+    // Envolvemos el campo para poder apoyar el botón encima, a la derecha.
+    const contenedor = document.createElement("div");
+    contenedor.className = "password-wrap";
+    input.parentNode.insertBefore(contenedor, input);
+    contenedor.appendChild(input);
+
+    const boton = document.createElement("button");
+    boton.type = "button";                     // nunca envía el formulario
+    boton.className = "password-toggle";
+    boton.innerHTML = SVG_OJO;
+    boton.setAttribute("aria-label", "Mostrar contraseña");
+    boton.title = "Mostrar contraseña";
+
+    boton.addEventListener("click", () => {
+      const mostrar = input.type === "password";
+      input.type = mostrar ? "text" : "password";
+      boton.innerHTML = mostrar ? SVG_OJO_TACHADO : SVG_OJO;
+      const etiqueta = mostrar ? "Ocultar contraseña" : "Mostrar contraseña";
+      boton.setAttribute("aria-label", etiqueta);
+      boton.title = etiqueta;
+      input.focus();
+    });
+
+    contenedor.appendChild(boton);
+  });
+}
+
+// ============================================================================
 // 3. LOGIN Y SESIÓN
 // ============================================================================
 
@@ -242,7 +294,7 @@ async function iniciarSesion(e) {
 
   if (error) {
     console.error("Error de login:", error);
-    mostrarErrorLogin(`${error.message} (código ${error.status ?? "sin código"})`);
+    mostrarErrorLogin(`Usuario o contraseña incorrecta`);
     return;
   }
 
@@ -347,6 +399,14 @@ function mostrarRecuperar(mostrar) {
   DOM.recuperarError.style.display = "none";
   DOM.recuperarOk.style.display = "none";
   if (mostrar) {
+    // Volvemos a dejar el formulario usable (si antes se había enviado, el
+    // botón quedaba oculto y los campos bloqueados).
+    DOM.recuperarBtn.style.display = "";
+    DOM.recuperarBtn.disabled = false;
+    DOM.recuperarBtn.textContent = "Enviar contraseña nueva";
+    DOM.recuperarUser.disabled = false;
+    DOM.recuperarMail.disabled = false;
+
     // Si ya había escrito el usuario en el login, se lo dejamos puesto.
     DOM.recuperarUser.value = DOM.loginUser.value.trim();
     DOM.recuperarMail.value = "";
@@ -387,8 +447,17 @@ async function pedirPasswordNueva(e) {
     texto = "No hay conexión. Probá de nuevo en un rato.";
   }
 
-  DOM.recuperarBtn.disabled = false;
-  DOM.recuperarBtn.textContent = "Enviar contraseña nueva";
+  if (ok) {
+    // Pedido enviado: sacamos el botón para que no lo puedan apretar de nuevo
+    // y pedir varias contraseñas seguidas (cada pedido invalida el anterior).
+    DOM.recuperarBtn.style.display = "none";
+    DOM.recuperarUser.disabled = true;
+    DOM.recuperarMail.disabled = true;
+  } else {
+    // Falló: lo dejamos intentar otra vez.
+    DOM.recuperarBtn.disabled = false;
+    DOM.recuperarBtn.textContent = "Enviar contraseña nueva";
+  }
 
   const caja = ok ? DOM.recuperarOk : DOM.recuperarError;
   caja.textContent = texto;
@@ -1836,4 +1905,5 @@ function conectarEventos() {
 // 12. ARRANQUE
 // ============================================================================
 conectarEventos();
+activarOjosDePassword();
 entrarAlPanel();

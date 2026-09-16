@@ -2297,3 +2297,48 @@ body {
   font-size: 0.85rem;
   color: var(--text-muted);
 }
+/* =========================================================
+   Ver / ocultar contraseña (el "ojito")
+   ========================================================= */
+.password-wrap {
+  position: relative;
+  display: block;
+}
+
+/* Espacio a la derecha para que el texto no pase por debajo del ojo */
+.password-wrap .form-input {
+  padding-right: 2.5rem;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.55rem;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.password-toggle:hover {
+  color: var(--text-primary);
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.password-toggle:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
+}
+
+/* Cuando el campo está deshabilitado, el ojo no debe invitar a tocarlo */
+.password-wrap .form-input:disabled + .password-toggle {
+  opacity: 0.4;
+  pointer-events: none;
+}
