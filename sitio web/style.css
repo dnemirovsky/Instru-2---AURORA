@@ -784,12 +784,12 @@ body {
   overflow-x: auto;
   width: 100%;
   max-width: 100%;
-  scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 #f1f5f9;
 }
 
 .drivers-table-container::-webkit-scrollbar {
-  height: 6px;
+  -webkit-appearance: none;   /* sin esto macOS esconde la barra */
+  height: 10px;
+  display: block;
 }
 
 .drivers-table-container::-webkit-scrollbar-track {
@@ -2342,3 +2342,330 @@ body {
   opacity: 0.4;
   pointer-events: none;
 }
+/* =========================================================
+   Carga masiva de conductores por CSV
+   ========================================================= */
+.alta-modo-switch {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.modo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0.5rem 0.95rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.modo-btn:hover { color: var(--text-primary); border-color: var(--border-focus); }
+
+.modo-btn.active {
+  color: var(--primary-color);
+  background: var(--primary-light);
+  border-color: var(--primary-color);
+  font-weight: 600;
+}
+
+/* ---------- Instrucciones ---------- */
+.csv-pasos {
+  margin: 4px 0 14px 18px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.csv-nota {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin: 10px 0;
+}
+
+.csv-ejemplo {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.csv-ejemplo th,
+.csv-ejemplo td {
+  border: 1px solid var(--border-color);
+  padding: 7px 11px;
+  text-align: left;
+}
+
+.csv-ejemplo th {
+  background: var(--bg-subtle);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.csv-ejemplo td { color: var(--text-secondary); }
+
+/* ---------- Zona para soltar el archivo ---------- */
+.csv-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 38px 20px;
+  border: 2px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.18s ease;
+}
+
+.csv-dropzone:hover,
+.csv-dropzone:focus-visible {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  outline: none;
+}
+
+.csv-dropzone-activa {
+  border-color: var(--primary-color);
+  background: var(--primary-light);
+  color: var(--primary-color);
+  transform: scale(1.01);
+}
+
+.csv-dropzone-titulo {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-top: 6px;
+}
+
+.csv-archivo-info {
+  padding: 9px 13px;
+  font-size: 0.82rem;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+}
+
+/* ---------- Tabla editable ---------- */
+.csv-tabla-wrap {
+  overflow-x: auto;
+  max-height: 460px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  margin: 12px 0;
+}
+
+.csv-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.csv-tabla thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border-color);
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+  min-width: 150px;
+}
+
+.csv-col-original {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.csv-rol { font-size: 0.78rem; padding: 0.3rem 0.5rem; }
+
+.csv-tabla td {
+  border-bottom: 1px solid var(--border-color);
+  padding: 3px 5px;
+}
+
+.csv-celda {
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  font-family: inherit;
+  font-size: 0.82rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.csv-celda:focus {
+  background: #ffffff;
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.csv-celda.celda-error {
+  background: var(--danger-bg);
+  border-color: var(--danger-border);
+}
+
+.csv-tabla tr.fila-con-error td { background: rgba(239, 68, 68, 0.03); }
+
+.csv-col-acciones { width: 42px; text-align: center; }
+
+.csv-borrar-fila {
+  display: inline-flex;
+  padding: 5px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.csv-borrar-fila:hover { color: var(--danger-color); background: var(--danger-bg); }
+
+/* ---------- Avisos y resumen ---------- */
+.csv-resumen { margin: 10px 0; }
+
+.csv-aviso {
+  padding: 9px 13px;
+  border-radius: var(--radius-sm);
+  font-size: 0.83rem;
+  margin-bottom: 8px;
+  border: 1px solid transparent;
+}
+
+.csv-aviso-ok      { background: var(--normal-bg);  border-color: var(--normal-border);  color: var(--normal-text); }
+.csv-aviso-warning { background: var(--warning-bg); border-color: var(--warning-border); color: var(--warning-text); }
+.csv-aviso-error   { background: var(--danger-bg);  border-color: var(--danger-border);  color: var(--danger-text); }
+
+.csv-problemas {
+  margin: 4px 0 8px 18px;
+  font-size: 0.79rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+/* ---------- Progreso ---------- */
+.csv-progreso {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.csv-barra {
+  flex: 1;
+  height: 7px;
+  background: var(--bg-subtle);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.csv-barra > div {
+  height: 100%;
+  width: 0;
+  background: var(--primary-color);
+  border-radius: 99px;
+  transition: width 0.25s ease;
+}
+
+.csv-progreso span {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* ---------- Barra de acciones del editor ---------- */
+.csv-barra-acciones {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 12px 0 4px;
+}
+
+.csv-barra-acciones .csv-archivo-info { flex: 1; margin: 0; }
+
+.btn-chico {
+  padding: 0.4rem 0.75rem !important;
+  font-size: 0.8rem !important;
+  gap: 5px;
+}
+
+/* ---------- Acciones por columna ---------- */
+.csv-col-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 5px;
+}
+
+.csv-col-botones {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.csv-tabla th:hover .csv-col-botones { opacity: 1; }
+
+.csv-col-btn {
+  display: inline-flex;
+  padding: 3px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.csv-col-btn:hover { color: var(--primary-color); background: var(--primary-light); }
+.csv-dividir:hover { color: var(--primary-color); }
+.csv-quitar-col:hover { color: var(--danger-color); background: var(--danger-bg); }
+
+/* ---------- Barras de deslizamiento siempre visibles ----------
+   En macOS las barras se esconden hasta que uno empieza a deslizar, y con
+   tablas anchas no se nota que hay más columnas a la derecha. Definiendo el
+   estilo, el navegador las deja fijas. */
+.csv-tabla-wrap::-webkit-scrollbar {
+  -webkit-appearance: none;   /* clave: sin esto macOS la esconde sola */
+  width: 12px;
+  height: 12px;
+  display: block;
+}
+
+.csv-tabla-wrap::-webkit-scrollbar-track {
+  background: var(--bg-subtle);
+  border-radius: 99px;
+}
+
+.csv-tabla-wrap::-webkit-scrollbar-thumb {
+  background: #b4bcc8;
+  border: 2px solid var(--bg-subtle);
+  border-radius: 99px;
+}
+
+.csv-tabla-wrap::-webkit-scrollbar-thumb:hover { background: #8e98a8; }
+
+.csv-tabla-wrap::-webkit-scrollbar-corner { background: var(--bg-subtle); }

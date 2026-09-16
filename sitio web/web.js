@@ -135,6 +135,26 @@ const DOM = {
   btnCancelAlta: $("btnCancelAlta"),
   altaResultado: $("altaResultado"),
 
+  // --- Carga masiva por CSV ---
+  btnModoIndividual: $("btnModoIndividual"),
+  btnModoCsv: $("btnModoCsv"),
+  altaIndividual: $("altaIndividual"),
+  altaCsv: $("altaCsv"),
+  csvZonaCarga: $("csvZonaCarga"),
+  csvDropzone: $("csvDropzone"),
+  csvInput: $("csvInput"),
+  csvArchivoInfo: $("csvArchivoInfo"),
+  csvEditor: $("csvEditor"),
+  csvThead: $("csvThead"),
+  csvTbody: $("csvTbody"),
+  btnAgregarColumna: $("btnAgregarColumna"),
+  btnCsvAlta: $("btnCsvAlta"),
+  btnCsvDescartar: $("btnCsvDescartar"),
+  csvProgreso: $("csvProgreso"),
+  csvBarraFill: $("csvBarraFill"),
+  csvProgresoTexto: $("csvProgresoTexto"),
+  csvResultado: $("csvResultado"),
+
   driverModal: $("driverModal"),
   closeModalBtn: $("closeModalBtn"),
   modalEnCurso: $("modalEnCurso"),
@@ -667,6 +687,13 @@ function escapeHtml(str) {
 }
 
 /** Misma regla que el trigger de la base, para mostrar el usuario sugerido. */
+/**
+ * Misma regla que el trigger de la base, para mostrar el usuario sugerido.
+ * Ojo: acá se muestra la versión "ideal" (una letra del nombre + apellido).
+ * Si ese usuario ya está ocupado, la base le va agregando letras del nombre
+ * (jperez → juperez → julperez), así que el usuario final puede ser más
+ * largo que el que se ve en la vista previa.
+ */
 function sugerirUsuario(nombre, apellido) {
   const texto = ((nombre || "").charAt(0) + (apellido || ""))
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -696,7 +723,7 @@ function renderKPIs() {
   const pct = (x) => total ? Math.round((x / total) * 100) + "%" : "0%";
 
   DOM.countTotal.textContent = total;
-  DOM.countEnRuta.textContent = "en viaje ahora";
+  DOM.countEnRuta.textContent = "En viaje";
   DOM.countNormal.textContent = n;
   DOM.countWarning.textContent = p;
   DOM.countDanger.textContent = a;
@@ -1305,6 +1332,578 @@ async function altaConductor(e) {
 }
 
 // ============================================================================
+// 9a-bis. CARGA MASIVA DE CONDUCTORES POR CSV
+// ============================================================================
+// La empresa sube la planilla que ya tiene. No exigimos ningún formato: se
+// lee el archivo, se muestra tal cual vino, y el administrador indica qué
+// columna es cada dato y corrige lo que haga falta antes de dar de alta.
+
+const CAMPOS_CSV = [
+  { clave: "nombre",   etiqueta: "Nombre" },
+  { clave: "apellido", etiqueta: "Apellido" },
+  { clave: "dni",      etiqueta: "DNI" },
+  { clave: "mail",     etiqueta: "Mail" }
+];
+
+const csvState = {
+  nombreArchivo: "",
+  encabezados: [],   // los nombres originales de las columnas
+  filas: [],         // matriz de strings
+  roles: []          // qué campo representa cada columna ("nombre", "", ...)
+};
+
+/** Saca acentos y pasa a minúscula, para comparar encabezados. */
+function normalizar(texto) {
+  return String(texto || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().trim();
+}
+
+/** Lee el archivo probando UTF-8 y, si falla, la codificación de Excel viejo. */
+async function leerArchivoTexto(archivo) {
+  const buffer = await archivo.arrayBuffer();
+  let texto;
+  try {
+    texto = new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+  } catch {
+    texto = new TextDecoder("windows-1252").decode(buffer);
+  }
+  return texto.replace(/^\uFEFF/, "");   // saca la marca invisible que mete Excel
+}
+
+/** Excel exporta con coma o con punto y coma según el idioma del sistema. */
+function detectarDelimitador(texto) {
+  const primeraLinea = texto.split(/\r?\n/)[0] || "";
+  let mejor = ",", maximo = -1;
+  [",", ";", "\t", "|"].forEach(d => {
+    const cuenta = primeraLinea.split(d).length - 1;
+    if (cuenta > maximo) { maximo = cuenta; mejor = d; }
+  });
+  return mejor;
+}
+
+/** Parser de CSV: respeta comillas, comas adentro de comillas y saltos de línea. */
+function parsearCsv(texto, delimitador) {
+  const filas = [];
+  let fila = [], campo = "", enComillas = false;
+
+  for (let i = 0; i < texto.length; i++) {
+    const c = texto[i];
+    if (enComillas) {
+      if (c === '"') {
+        if (texto[i + 1] === '"') { campo += '"'; i++; }   // comilla escapada
+        else enComillas = false;
+      } else campo += c;
+    } else if (c === '"') {
+      enComillas = true;
+    } else if (c === delimitador) {
+      fila.push(campo); campo = "";
+    } else if (c === "\n") {
+      fila.push(campo); filas.push(fila); fila = []; campo = "";
+    } else if (c !== "\r") {
+      campo += c;
+    }
+  }
+  if (campo !== "" || fila.length) { fila.push(campo); filas.push(fila); }
+
+  return filas.filter(f => f.some(v => v.trim() !== ""));   // fuera las vacías
+}
+
+/**
+ * Adivina qué columna es cada campo. Usa puntajes en vez de quedarse con la
+ * primera coincidencia, porque planillas reales suelen traer columnas como
+ * "Apellido y Nombre" junto a "Apellido" y "Nombre" por separado: gana la
+ * que coincide mejor, no la que aparece antes.
+ */
+function adivinarRoles(encabezados) {
+  const puntajes = {
+    nombre: t => {
+      if (t.includes("apellido")) return 0;               // "apellido y nombre"
+      if (/^nombres?$/.test(t)) return 100;
+      return t.includes("nombre") ? 60 : 0;
+    },
+    apellido: t => {
+      if (t.includes("nombre")) return 0;
+      if (/^apellidos?$/.test(t)) return 100;
+      return t.includes("apellido") ? 60 : 0;
+    },
+    dni: t => {
+      if (/^(dni|documento|doc)$/.test(t)) return 100;
+      if (t.includes("dni") || t.includes("documento")) return 60;
+      return 0;
+    },
+    mail: t => {
+      if (/^(mail|email|e-mail|correo)$/.test(t)) return 100;
+      if (t.includes("mail") || t.includes("correo")) return 60;
+      return 0;
+    }
+  };
+
+  const normalizados = encabezados.map(normalizar);
+  const roles = new Array(encabezados.length).fill("");
+  const columnasUsadas = new Set();
+
+  // Para cada campo, la columna con mejor puntaje que todavía esté libre.
+  CAMPOS_CSV.forEach(({ clave }) => {
+    let mejorCol = -1, mejorPuntaje = 0;
+    normalizados.forEach((t, j) => {
+      if (columnasUsadas.has(j)) return;
+      const p = puntajes[clave](t);
+      if (p > mejorPuntaje) { mejorPuntaje = p; mejorCol = j; }
+    });
+    if (mejorCol >= 0) { roles[mejorCol] = clave; columnasUsadas.add(mejorCol); }
+  });
+
+  return roles;
+}
+
+async function cargarArchivoCsv(archivo) {
+  if (!archivo) return;
+  if (!/\.csv$|\.txt$/i.test(archivo.name)) {
+    showToast("El archivo tiene que ser .csv", "toast-error");
+    return;
+  }
+
+  const texto = await leerArchivoTexto(archivo);
+  const filas = parsearCsv(texto, detectarDelimitador(texto));
+
+  if (filas.length < 2) {
+    showToast("El archivo no tiene filas de datos", "toast-error");
+    return;
+  }
+
+  const encabezados = filas[0].map(h => h.trim());
+  const ancho = encabezados.length;
+
+  csvState.nombreArchivo = archivo.name;
+  csvState.encabezados = encabezados;
+  // Igualamos el ancho de todas las filas para que la tabla no se rompa.
+  csvState.filas = filas.slice(1).map(f => {
+    const copia = f.slice(0, ancho).map(v => v.trim());
+    while (copia.length < ancho) copia.push("");
+    return copia;
+  });
+  csvState.roles = adivinarRoles(encabezados);
+
+  DOM.csvZonaCarga.style.display = "none";   // ya no hace falta ocupar pantalla
+  DOM.csvArchivoInfo.innerHTML = `
+    <strong>${escapeHtml(archivo.name)}</strong> ·
+    ${csvState.filas.length} fila${csvState.filas.length === 1 ? "" : "s"} ·
+    ${ancho} columna${ancho === 1 ? "" : "s"}`;
+
+  DOM.csvResultado.style.display = "none";
+  DOM.csvEditor.style.display = "block";
+  renderCsvTabla();
+  DOM.csvEditor.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function renderCsvTabla() {
+  // --- Encabezado: nombre original, qué dato es, y acciones sobre la columna ---
+  DOM.csvThead.innerHTML = `<tr>${csvState.encabezados.map((h, j) => `
+    <th>
+      <div class="csv-col-top">
+        <span class="csv-col-original" title="${escapeHtml(h)}">${escapeHtml(h) || "(sin nombre)"}</span>
+        <span class="csv-col-botones">
+          <button type="button" class="csv-col-btn csv-dividir" data-col="${j}"
+                  title="Dividir esta columna en dos (por ejemplo, apellido y nombre)">
+            <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none">
+              <line x1="12" y1="3" x2="12" y2="21"></line>
+              <polyline points="8 8 4 12 8 16"></polyline>
+              <polyline points="16 8 20 12 16 16"></polyline>
+            </svg>
+          </button>
+          <button type="button" class="csv-col-btn csv-quitar-col" data-col="${j}" title="Quitar esta columna">
+            <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </span>
+      </div>
+      <select class="form-select csv-rol" data-col="${j}">
+        <option value="">Ignorar</option>
+        ${CAMPOS_CSV.map(c => `<option value="${c.clave}">${c.etiqueta}</option>`).join("")}
+      </select>
+    </th>`).join("")}<th class="csv-col-acciones"></th></tr>`;
+
+  DOM.csvThead.querySelectorAll(".csv-rol").forEach(sel => {
+    const j = Number(sel.dataset.col);
+    sel.value = csvState.roles[j] || "";
+    sel.addEventListener("change", () => {
+      // Un mismo campo no puede estar en dos columnas: se libera la anterior.
+      if (sel.value) {
+        csvState.roles = csvState.roles.map(r => (r === sel.value ? "" : r));
+      }
+      csvState.roles[j] = sel.value;
+      renderCsvTabla();
+    });
+  });
+
+  DOM.csvThead.querySelectorAll(".csv-dividir").forEach(btn =>
+    btn.addEventListener("click", () => dividirColumna(Number(btn.dataset.col))));
+
+  DOM.csvThead.querySelectorAll(".csv-quitar-col").forEach(btn =>
+    btn.addEventListener("click", () => quitarColumna(Number(btn.dataset.col))));
+
+  // --- Filas editables ---
+  DOM.csvTbody.innerHTML = csvState.filas.map((fila, i) => `
+    <tr data-fila="${i}">
+      ${fila.map((valor, j) => `
+        <td><input class="csv-celda" data-fila="${i}" data-col="${j}"
+                   value="${escapeHtml(valor)}" /></td>`).join("")}
+      <td class="csv-col-acciones">
+        <button type="button" class="csv-borrar-fila" data-fila="${i}" title="Quitar esta fila">
+          <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+          </svg>
+        </button>
+      </td>
+    </tr>`).join("");
+
+  DOM.csvTbody.querySelectorAll(".csv-celda").forEach(input => {
+    input.addEventListener("input", () => {
+      csvState.filas[Number(input.dataset.fila)][Number(input.dataset.col)] = input.value;
+      pintarValidacion();
+    });
+  });
+
+  DOM.csvTbody.querySelectorAll(".csv-borrar-fila").forEach(btn => {
+    btn.addEventListener("click", () => {
+      csvState.filas.splice(Number(btn.dataset.fila), 1);
+      if (!csvState.filas.length) { descartarCsv(); return; }
+      renderCsvTabla();
+    });
+  });
+
+  pintarValidacion();
+}
+
+/**
+ * Parte una columna en dos. Sirve para las planillas que traen "Pérez, Juan"
+ * o "Juan Pérez" en una sola celda. Corta por la coma si la hay; si no, por
+ * el primer espacio.
+ */
+function dividirColumna(j) {
+  const valores = csvState.filas.map(f => f[j] || "");
+  const hayComas = valores.filter(v => v.includes(",")).length > valores.length / 2;
+
+  const partes = valores.map(v => {
+    const texto = v.trim();
+    if (!texto) return ["", ""];
+    const corte = hayComas ? texto.indexOf(",") : texto.indexOf(" ");
+    if (corte < 0) return [texto, ""];
+    return [texto.slice(0, corte).trim(), texto.slice(corte + 1).trim()];
+  });
+
+  const nombreOriginal = csvState.encabezados[j] || "columna";
+  csvState.encabezados.splice(j, 2 - 1, `${nombreOriginal} (1)`, `${nombreOriginal} (2)`);
+  csvState.roles.splice(j, 1, "", "");
+  csvState.filas.forEach((f, i) => f.splice(j, 1, partes[i][0], partes[i][1]));
+
+  // Reintentamos adivinar, ahora que las columnas nuevas pueden encajar.
+  csvState.roles = adivinarRoles(csvState.encabezados);
+  renderCsvTabla();
+  showToast("Columna dividida en dos. Revisá cuál es cuál.");
+}
+
+/** Saca una columna entera de la tabla. */
+function quitarColumna(j) {
+  if (csvState.encabezados.length <= 1) return;
+  csvState.encabezados.splice(j, 1);
+  csvState.roles.splice(j, 1);
+  csvState.filas.forEach(f => f.splice(j, 1));
+  renderCsvTabla();
+}
+
+/** Agrega una columna vacía al final, para completar un dato que no vino. */
+function agregarColumna() {
+  csvState.encabezados.push("Columna nueva");
+  csvState.roles.push("");
+  csvState.filas.forEach(f => f.push(""));
+  renderCsvTabla();
+}
+
+/** Devuelve, por fila, los datos ya mapeados a los cuatro campos. */
+function filasMapeadas() {
+  const indice = {};
+  csvState.roles.forEach((rol, j) => { if (rol) indice[rol] = j; });
+
+  return csvState.filas.map(fila => {
+    const dato = {};
+    CAMPOS_CSV.forEach(c => {
+      dato[c.clave] = indice[c.clave] !== undefined ? (fila[indice[c.clave]] || "").trim() : "";
+    });
+    return dato;
+  });
+}
+
+const MAIL_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * Marca en rojo las celdas con problemas y ajusta el botón de alta.
+ * No bloquea por duplicados: esas filas se saltean al cargar y se informan
+ * al final. Solo exige que estén asignadas las cuatro columnas.
+ */
+function pintarValidacion() {
+  const asignados = csvState.roles.filter(Boolean);
+  const faltantes = CAMPOS_CSV.filter(c => !asignados.includes(c.clave));
+  const datos = filasMapeadas();
+
+  const indice = {};
+  csvState.roles.forEach((rol, j) => { if (rol) indice[rol] = j; });
+
+  let filasCargables = 0;
+
+  csvState.filas.forEach((fila, i) => {
+    const d = datos[i];
+    let filaMal = false;
+
+    CAMPOS_CSV.forEach(c => {
+      if (indice[c.clave] === undefined) return;
+      const vacio = !d[c.clave];
+      const malMail = c.clave === "mail" && d.mail && !MAIL_VALIDO.test(d.mail);
+      const mal = vacio || malMail;
+
+      const celda = DOM.csvTbody.querySelector(
+        `.csv-celda[data-fila="${i}"][data-col="${indice[c.clave]}"]`);
+      if (celda) celda.classList.toggle("celda-error", mal);
+      if (mal) filaMal = true;
+    });
+
+    const tr = DOM.csvTbody.querySelector(`tr[data-fila="${i}"]`);
+    if (tr) tr.classList.toggle("fila-con-error", filaMal);
+    if (!filaMal) filasCargables++;
+  });
+
+  // Toda la información va en el botón, sin carteles aparte.
+  if (faltantes.length) {
+    DOM.btnCsvAlta.disabled = true;
+    DOM.btnCsvAlta.textContent = `Falta indicar: ${faltantes.map(c => c.etiqueta).join(", ")}`;
+  } else if (!filasCargables) {
+    DOM.btnCsvAlta.disabled = true;
+    DOM.btnCsvAlta.textContent = "No hay filas completas";
+  } else {
+    DOM.btnCsvAlta.disabled = false;
+    DOM.btnCsvAlta.textContent = `Dar de alta ${filasCargables} conductor${filasCargables === 1 ? "" : "es"}`;
+  }
+}
+
+function descartarCsv() {
+  csvState.nombreArchivo = "";
+  csvState.encabezados = [];
+  csvState.filas = [];
+  csvState.roles = [];
+  DOM.csvInput.value = "";
+  DOM.csvEditor.style.display = "none";
+  DOM.csvZonaCarga.style.display = "";
+  DOM.csvProgreso.style.display = "none";
+}
+
+/** Traduce los errores de la base a algo que se entienda. */
+function explicarError(mensaje) {
+  const t = (mensaje || "").toLowerCase();
+  if (t.includes("mail_unico") || (t.includes("duplicate") && t.includes("mail")))
+    return "ya hay alguien con ese mail";
+  if (t.includes("dni_unico") || (t.includes("duplicate") && t.includes("dni")))
+    return "ya hay alguien con ese DNI";
+  if (t.includes("duplicate") || t.includes("already"))
+    return "ya existe en el sistema";
+  return mensaje || "error desconocido";
+}
+
+/**
+ * Da de alta de a uno, en orden, mostrando el avance.
+ * Las filas incompletas y las que ya existen se saltean: el resto se carga
+ * igual, y al final se informa qué pasó con cada una.
+ */
+async function altaMasivaCsv() {
+  const datos = filasMapeadas();
+  if (!datos.length) return;
+
+  // Lo que ya está en la base, para no ni siquiera intentarlo.
+  const mailsEnBase = new Set((state.usuarios || []).map(u => (u.mail || "").toLowerCase()));
+  const dnisEnBase  = new Set((state.usuarios || []).map(u => u.dni));
+  // Y lo que se repite dentro del mismo archivo.
+  const vistosMail = new Set(), vistosDni = new Set();
+
+  DOM.btnCsvAlta.disabled = true;
+  DOM.btnCsvDescartar.disabled = true;
+  DOM.csvProgreso.style.display = "flex";
+
+  const creados = [], repetidos = [], fallados = [];
+
+  for (let i = 0; i < datos.length; i++) {
+    const d = datos[i];
+    const mail = d.mail.toLowerCase();
+
+    DOM.csvProgresoTexto.textContent = `${i + 1} de ${datos.length}`;
+    DOM.csvBarraFill.style.width = `${Math.round((i / datos.length) * 100)}%`;
+
+    // --- Filas que no se pueden cargar: se saltean sin frenar el resto ---
+    if (!d.nombre || !d.apellido || !d.dni || !d.mail || !MAIL_VALIDO.test(d.mail)) {
+      fallados.push({ ...d, detalle: "faltan datos o el mail es inválido" });
+      continue;
+    }
+    if (mailsEnBase.has(mail) || dnisEnBase.has(d.dni)) {
+      repetidos.push({ ...d, detalle: "ya estaba cargado" });
+      continue;
+    }
+    if (vistosMail.has(mail) || vistosDni.has(d.dni)) {
+      repetidos.push({ ...d, detalle: "repetido dentro del archivo" });
+      continue;
+    }
+
+    try {
+      const { data, error } = await db.functions.invoke("alta-usuario", {
+        body: { nombre: d.nombre, apellido: d.apellido, dni: d.dni, mail: d.mail }
+      });
+      if (error || data?.error) {
+        const detalle = explicarError(data?.error || error.message);
+        // Si la base lo rechazó por duplicado, va como repetido, no como error.
+        (detalle.startsWith("ya ") ? repetidos : fallados).push({ ...d, detalle });
+      } else {
+        creados.push({ ...d, usuario: data.usuario, password: data.password,
+                       mailEnviado: !!data.mail_enviado });
+        vistosMail.add(mail);
+        vistosDni.add(d.dni);
+      }
+    } catch (err) {
+      fallados.push({ ...d, detalle: err.message });
+    }
+  }
+
+  DOM.csvBarraFill.style.width = "100%";
+  DOM.csvProgresoTexto.textContent = "Listo";
+  DOM.btnCsvDescartar.disabled = false;
+
+  mostrarResultadoCsv(creados, repetidos, fallados);
+  descartarCsv();
+  await cargarDatos();
+}
+
+function mostrarResultadoCsv(creados, repetidos, fallados) {
+  const nombreDe = r => `${escapeHtml(r.nombre)} ${escapeHtml(r.apellido)}`;
+
+  let encabezado;
+  if (creados.length && !repetidos.length && !fallados.length) {
+    encabezado = `<div class="csv-aviso csv-aviso-ok">
+      Se cargaron <strong>${creados.length}</strong> conductor${creados.length === 1 ? "" : "es"} sin problemas.</div>`;
+  } else if (creados.length) {
+    encabezado = `<div class="csv-aviso csv-aviso-warning">
+      Se cargaron <strong>${creados.length}</strong> de ${creados.length + repetidos.length + fallados.length}.
+      ${repetidos.length ? `<strong>${repetidos.length}</strong> ya existía${repetidos.length === 1 ? "" : "n"}.` : ""}
+      ${fallados.length ? `<strong>${fallados.length}</strong> con error.` : ""}</div>`;
+  } else {
+    encabezado = `<div class="csv-aviso csv-aviso-error">
+      No se cargó ningún conductor.</div>`;
+  }
+
+  DOM.csvResultado.style.display = "block";
+  DOM.csvResultado.innerHTML = `
+    <div class="form-section-title">Resultado de la carga</div>
+    ${encabezado}
+
+    ${creados.length ? `
+      <div class="csv-tabla-wrap">
+        <table class="drivers-table">
+          <thead><tr><th>Conductor</th><th>Usuario</th><th>Contraseña temporal</th><th>Mail</th></tr></thead>
+          <tbody>${creados.map(r => `
+            <tr>
+              <td><strong>${nombreDe(r)}</strong></td>
+              <td>${escapeHtml(r.usuario)}</td>
+              <td><code>${escapeHtml(r.password)}</code></td>
+              <td>${r.mailEnviado ? "Enviado" : "No se pudo enviar"}</td>
+            </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+      <div class="form-actions-row">
+        <button type="button" id="btnDescargarCredenciales" class="btn btn-outline-action">
+          Descargar credenciales (CSV)
+        </button>
+      </div>` : ""}
+
+    ${repetidos.length ? `
+      <p class="csv-nota"><strong>Ya estaban en el sistema</strong> (no se volvieron a cargar):</p>
+      <ul class="csv-problemas">${repetidos.map(r =>
+        `<li>${nombreDe(r)} — ${escapeHtml(r.detalle)}</li>`).join("")}</ul>` : ""}
+
+    ${fallados.length ? `
+      <p class="csv-nota"><strong>No se pudieron cargar:</strong></p>
+      <ul class="csv-problemas">${fallados.map(r =>
+        `<li>${nombreDe(r)} — ${escapeHtml(r.detalle)}</li>`).join("")}</ul>` : ""}`;
+
+  const btnDescarga = document.getElementById("btnDescargarCredenciales");
+  if (btnDescarga) btnDescarga.addEventListener("click", () => descargarCredenciales(creados));
+
+  DOM.csvResultado.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+/** Genera un CSV con las credenciales para guardarlo o imprimirlo. */
+function descargarCredenciales(filas) {
+  const escapar = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const contenido = "\uFEFF" + [
+    ["Nombre", "Apellido", "DNI", "Mail", "Usuario", "Contraseña temporal"].join(","),
+    ...filas.map(r => [r.nombre, r.apellido, r.dni, r.mail, r.usuario, r.password].map(escapar).join(","))
+  ].join("\r\n");
+
+  const blob = new Blob([contenido], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `credenciales-aurora-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/** Alterna entre el alta individual y la carga por CSV. */
+function cambiarModoAlta(modo) {
+  const esCsv = modo === "csv";
+  DOM.altaIndividual.style.display = esCsv ? "none" : "block";
+  DOM.altaCsv.style.display = esCsv ? "block" : "none";
+  DOM.btnModoIndividual.classList.toggle("active", !esCsv);
+  DOM.btnModoCsv.classList.toggle("active", esCsv);
+}
+
+function conectarEventosCsv() {
+  DOM.btnModoIndividual.addEventListener("click", () => cambiarModoAlta("individual"));
+  DOM.btnModoCsv.addEventListener("click", () => cambiarModoAlta("csv"));
+
+  // Clic en el recuadro o en el botón: abre el explorador de archivos.
+  DOM.csvDropzone.addEventListener("click", () => DOM.csvInput.click());
+  DOM.csvDropzone.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); DOM.csvInput.click(); }
+  });
+  DOM.csvInput.addEventListener("change", (e) => cargarArchivoCsv(e.target.files[0]));
+
+  // Arrastrar y soltar.
+  ["dragenter", "dragover"].forEach(evt =>
+    DOM.csvDropzone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      DOM.csvDropzone.classList.add("csv-dropzone-activa");
+    }));
+  ["dragleave", "drop"].forEach(evt =>
+    DOM.csvDropzone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      DOM.csvDropzone.classList.remove("csv-dropzone-activa");
+    }));
+  DOM.csvDropzone.addEventListener("drop", (e) => {
+    const archivo = e.dataTransfer?.files?.[0];
+    if (archivo) cargarArchivoCsv(archivo);
+  });
+  // Si sueltan el archivo fuera del recuadro, que el navegador no lo abra.
+  window.addEventListener("dragover", (e) => e.preventDefault());
+  window.addEventListener("drop", (e) => e.preventDefault());
+
+  DOM.btnAgregarColumna.addEventListener("click", agregarColumna);
+  DOM.btnCsvAlta.addEventListener("click", altaMasivaCsv);
+  DOM.btnCsvDescartar.addEventListener("click", () => {
+    descartarCsv();
+    DOM.csvResultado.style.display = "none";
+  });
+}
+
+// ============================================================================
 // 9b. SUPERADMIN — gestión de administradores
 // ============================================================================
 async function cargarDatosSuperadmin() {
@@ -1870,6 +2469,7 @@ function conectarEventos() {
   });
 
   DOM.newDriverForm.addEventListener("submit", altaConductor);
+  conectarEventosCsv();
   DOM.btnCancelAlta.addEventListener("click", () => {
     DOM.newDriverForm.reset();
     DOM.altaResultado.style.display = "none";
