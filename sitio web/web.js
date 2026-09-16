@@ -213,6 +213,8 @@ const DOM = {
   btnSubmitEditChofer: $("btnSubmitEditChofer"),
   btnCancelEditChofer: $("btnCancelEditChofer"),
   choferesEditTableBody: $("choferesEditTableBody"),
+  contadorChoferesTotal: $("contadorChoferesTotal"),
+  contadorChoferesDetalle: $("contadorChoferesDetalle"),
   choferesEditEmptyState: $("choferesEditEmptyState"),
 
   cuentaForm: $("cuentaForm"),
@@ -988,7 +990,10 @@ function dibujarGraficoViaje() {
   const ctx = canvas.getContext("2d");
   const ratio = window.devicePixelRatio || 1;
   const ancho = canvas.parentElement.clientWidth || 800;
-  const alto = 240;
+  // El alto lo manda el contenedor: el CSS fuerza el canvas a ocupar el 100%,
+  // así que si dibujamos con otro alto la imagen se estira y las letras salen
+  // deformadas.
+  const alto = canvas.parentElement.clientHeight || 260;
 
   canvas.width = ancho * ratio;
   canvas.height = alto * ratio;
@@ -1123,7 +1128,10 @@ function dibujarGrafico(filas) {
   const ctx = canvas.getContext("2d");
   const ratio = window.devicePixelRatio || 1;
   const ancho = canvas.parentElement.clientWidth || 800;
-  const alto = 240;
+  // El alto lo manda el contenedor: el CSS fuerza el canvas a ocupar el 100%,
+  // así que si dibujamos con otro alto la imagen se estira y las letras salen
+  // deformadas.
+  const alto = canvas.parentElement.clientHeight || 260;
 
   canvas.width = ancho * ratio;
   canvas.height = alto * ratio;
@@ -2178,6 +2186,14 @@ async function guardarEditAdmin(e) {
 // ============================================================================
 function renderChoferesEdit() {
   const lista = state.usuarios.filter(u => u.rol === "chofer");
+
+  // Contador del encabezado: total y, si hay bajas, cuántos siguen activos.
+  const activos = lista.filter(c => c.activo).length;
+  DOM.contadorChoferesTotal.textContent = lista.length;
+  DOM.contadorChoferesDetalle.textContent =
+    (lista.length === 1 ? "conductor" : "conductores") +
+    (activos < lista.length ? ` · ${activos} activo${activos === 1 ? "" : "s"}` : "");
+
   DOM.choferesEditEmptyState.style.display = lista.length ? "none" : "block";
   DOM.choferesEditTableBody.innerHTML = "";
 
