@@ -2697,3 +2697,17 @@ body {
   font-size: 0.8rem;
   color: var(--text-secondary);
 }
+/* Resultado de alta cuando todo falló: se ve como error, no como éxito */
+.alta-resultado-error {
+  border-color: var(--danger-border) !important;
+  background: var(--danger-bg) !important;
+}
+
+.alta-resultado-error h4 { color: var(--danger-text); }
+
+/* Usuario sugerido ya confirmado contra la base */
+.preview-confirmado {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 600;
+  color: var(--normal-text);
+}

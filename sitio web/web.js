@@ -696,11 +696,50 @@ function escapeHtml(str) {
  * (jperez → juperez → julperez), así que el usuario final puede ser más
  * largo que el que se ve en la vista previa.
  */
+/** Versión local: solo arma la forma básica, sin saber si está libre. */
 function sugerirUsuario(nombre, apellido) {
   const texto = ((nombre || "").charAt(0) + (apellido || ""))
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .toLowerCase().replace(/[^a-z]/g, "");
   return texto || "—";
+}
+
+/**
+ * Vista previa de verdad: le pregunta a la base cuál sería el usuario.
+ * Hace falta porque desde el navegador no se pueden ver los usuarios de otras
+ * empresas, así que antes sugería "mkatseye" aunque ya estuviera ocupado.
+ * Se espera a que la persona deje de escribir para no consultar en cada tecla.
+ */
+const temporizadoresPreview = {};
+
+function actualizarPreviewUsuario(destino, inputNombre, inputApellido) {
+  const nombre = inputNombre.value.trim();
+  const apellido = inputApellido.value.trim();
+
+  if (!nombre || !apellido) {
+    destino.textContent = nombre || apellido ? sugerirUsuario(nombre, apellido) : "—";
+    destino.classList.remove("preview-confirmado");
+    return;
+  }
+
+  // Mostramos la versión tentativa mientras llega la respuesta.
+  destino.textContent = sugerirUsuario(nombre, apellido);
+  destino.classList.remove("preview-confirmado");
+
+  const clave = destino.id;
+  clearTimeout(temporizadoresPreview[clave]);
+  temporizadoresPreview[clave] = setTimeout(async () => {
+    const { data, error } = await db.rpc("sugerir_usuario", {
+      p_nombre: nombre, p_apellido: apellido
+    });
+    // Si la consulta falla, queda la versión tentativa: no rompe nada.
+    if (error || !data) return;
+    // Puede haber seguido escribiendo mientras tanto.
+    if (inputNombre.value.trim() !== nombre || inputApellido.value.trim() !== apellido) return;
+
+    destino.textContent = data;
+    destino.classList.add("preview-confirmado");
+  }, 350);
 }
 
 // ============================================================================
@@ -1311,6 +1350,16 @@ async function altaConductor(e) {
   DOM.btnSubmitAlta.disabled = true;
   DOM.btnSubmitAlta.textContent = "Registrando...";
 
+  // Aviso temprano: el DNI y el mail son únicos en todo el sistema, no solo
+  // dentro de la empresa.
+  const repetido = await buscarRepetido(dni, mail);
+  if (repetido) {
+    DOM.btnSubmitAlta.disabled = false;
+    DOM.btnSubmitAlta.textContent = "Registrar conductor";
+    showToast(repetido, "toast-error");
+    return;
+  }
+
   // La creación del usuario necesita permisos privilegiados, así que corre
   // en una función del servidor (Edge Function), no acá en el navegador.
   const { data, error } = await db.functions.invoke("alta-usuario", {
@@ -1708,15 +1757,38 @@ function descartarCsv() {
 }
 
 /** Traduce los errores de la base a algo que se entienda. */
+/**
+ * Traduce los errores de la base a un texto para mostrar en pantalla.
+ *
+ * Importante: NUNCA devuelve el mensaje crudo de Postgres. Esos mensajes
+ * traen adentro el valor duplicado ("Key (mail)=(juan@x.com) already exists")
+ * y, con él, datos de usuarios de otras empresas que quien está mirando la
+ * pantalla no tiene por qué ver. Lo desconocido se muestra genérico y el
+ * detalle técnico queda en la consola, para quien esté depurando.
+ */
 function explicarError(mensaje) {
   const t = (mensaje || "").toLowerCase();
+
   if (t.includes("mail_unico") || (t.includes("duplicate") && t.includes("mail")))
-    return "ya hay alguien con ese mail";
+    return "ya existe un usuario con ese mail";
   if (t.includes("dni_unico") || (t.includes("duplicate") && t.includes("dni")))
-    return "ya hay alguien con ese DNI";
-  if (t.includes("duplicate") || t.includes("already"))
-    return "ya existe en el sistema";
-  return mensaje || "error desconocido";
+    return "ya existe un usuario con ese DNI";
+  if (t.includes("usuario_key") || (t.includes("duplicate") && t.includes("usuario")))
+    return "ya existe un usuario con ese nombre de usuario";
+  if (t.includes("cuit"))
+    return "ya existe una empresa con ese CUIT";
+  if (t.includes("duplicate") || t.includes("already") || t.includes("unique"))
+    return "ese dato ya está registrado";
+
+  if (t.includes("permission") || t.includes("policy") || t.includes("row-level"))
+    return "no tenés permiso para hacer esa operación";
+  if (t.includes("network") || t.includes("fetch") || t.includes("timeout"))
+    return "no se pudo conectar con el servidor";
+  if (t.includes("no hay sesión") || t.includes("jwt") || t.includes("401"))
+    return "la sesión expiró, volvé a entrar";
+
+  if (mensaje) console.error("Error sin traducir:", mensaje);
+  return "no se pudo completar la operación";
 }
 
 /**
@@ -1756,6 +1828,15 @@ async function altaMasivaCsv() {
       repetidos.push({ ...d, detalle: "ya estaba cargado" });
       continue;
     }
+    // También puede existir en otra empresa, que desde acá no se ve.
+    const [chequeoDni, chequeoMail] = await Promise.all([
+      db.rpc("existe_dni",  { p_dni: d.dni }),
+      db.rpc("existe_mail", { p_mail: d.mail })
+    ]);
+    if (chequeoDni.data || chequeoMail.data) {
+      repetidos.push({ ...d, detalle: "ya estaba cargado" });
+      continue;
+    }
     if (vistosMail.has(mail) || vistosDni.has(d.dni)) {
       repetidos.push({ ...d, detalle: "repetido dentro del archivo" });
       continue;
@@ -1776,7 +1857,7 @@ async function altaMasivaCsv() {
         vistosDni.add(d.dni);
       }
     } catch (err) {
-      fallados.push({ ...d, detalle: err.message });
+      fallados.push({ ...d, detalle: explicarError(err.message) });
     }
   }
 
@@ -2000,7 +2081,7 @@ function cancelarEdicionAdmin() {
 async function alternarBajaAdmin(a) {
   const { error } = await db.from("usuarios").update({ activo: !a.activo }).eq("id", a.id);
   if (error) {
-    showToast("No se pudo actualizar: " + error.message, "toast-error");
+    showToast("No se pudo actualizar: " + explicarError(error.message), "toast-error");
     return;
   }
   showToast(a.activo ? "Administrador dado de baja" : "Administrador reactivado");
@@ -2017,7 +2098,7 @@ async function resolverEmpresa(nombreEmpresa, cuit) {
     .ilike("nombre", limpio)
     .limit(1);
 
-  if (errBuscar) return { error: errBuscar.message };
+  if (errBuscar) return { error: explicarError(errBuscar.message) };
   if (encontradas && encontradas.length) return { id: encontradas[0].id, creada: false };
 
   const { data: nueva, error: errCrear } = await db
@@ -2026,11 +2107,41 @@ async function resolverEmpresa(nombreEmpresa, cuit) {
     .select("id")
     .single();
 
-  if (errCrear) return { error: "No se pudo crear la empresa: " + errCrear.message };
+  if (errCrear) return { error: "No se pudo crear la empresa: " + explicarError(errCrear.message) };
   return { id: nueva.id, creada: true };
 }
 
-function agregarAdminPendiente() {
+/**
+ * Avisa antes de intentar, si ese DNI o mail ya lo tiene alguien.
+ * El nombre de usuario repetido NO es problema: la base le agrega una letra
+ * más del nombre (mkatseye -> mikatseye). Lo que no puede repetirse es el
+ * mail o el DNI.
+ */
+async function buscarRepetido(dni, mail) {
+  const mailBajo = mail.toLowerCase();
+
+  // Primero lo que ya está en pantalla, sin consultar nada.
+  if (state.pendingAdmins.some(a => a.dni === dni))
+    return "Ese DNI ya está en la lista de abajo";
+  if (state.pendingAdmins.some(a => a.mail.toLowerCase() === mailBajo))
+    return "Ese mail ya está en la lista de abajo";
+
+  // Y después la base entera. Hace falta preguntarle a ella porque desde el
+  // navegador no se ven los usuarios de otras empresas: mirando solo la lista
+  // local, un DNI ya cargado como chofer en otra empresa pasaba inadvertido.
+  // Las funciones responden sí o no, sin decir de quién es el dato.
+  const [resDni, resMail] = await Promise.all([
+    db.rpc("existe_dni",  { p_dni: dni }),
+    db.rpc("existe_mail", { p_mail: mail })
+  ]);
+
+  if (resDni.data)  return "Ya existe un usuario con ese DNI";
+  if (resMail.data) return "Ya existe un usuario con ese mail";
+
+  return null;
+}
+
+async function agregarAdminPendiente() {
   const nombre = DOM.adminNombre.value.trim();
   const apellido = DOM.adminApellido.value.trim();
   const dni = DOM.adminDni.value.trim();
@@ -2043,6 +2154,9 @@ function agregarAdminPendiente() {
     return;
   }
 
+  const repetido = await buscarRepetido(dni, mail);
+  if (repetido) { showToast(repetido, "toast-error"); return; }
+
   state.pendingAdmins.push({ nombre, apellido, dni, mail, empresa, cuit, id: Date.now() });
   renderPendingAdmins();
   DOM.adminForm.reset();
@@ -2050,7 +2164,12 @@ function agregarAdminPendiente() {
 }
 
 function renderPendingAdmins() {
-  DOM.pendingAdminsContainer.style.display = state.pendingAdmins.length ? "block" : "none";
+  const cuantos = state.pendingAdmins.length;
+  DOM.btnSubmitAdmin.textContent = cuantos
+    ? `Registrar ${cuantos} administrador${cuantos === 1 ? "" : "es"}`
+    : "Registrar";
+
+  DOM.pendingAdminsContainer.style.display = cuantos ? "block" : "none";
   DOM.pendingAdminsTableBody.innerHTML = "";
   state.pendingAdmins.forEach((a) => {
     const tr = document.createElement("tr");
@@ -2087,6 +2206,8 @@ async function guardarAdmin(e) {
         showToast("Completá todos los campos del admin actual", "toast-error");
         return;
      }
+     const repetido = await buscarRepetido(dni, mail);
+     if (repetido) { showToast(repetido, "toast-error"); return; }
      state.pendingAdmins.push({ nombre, apellido, dni, mail, empresa, cuit, id: Date.now() });
      DOM.adminForm.reset();
      DOM.adminUsuarioPreview.textContent = "—";
@@ -2101,43 +2222,62 @@ async function guardarAdmin(e) {
   DOM.btnSubmitAdmin.disabled = true;
   DOM.btnSubmitAdmin.textContent = "Registrando...";
 
-  let htmlResult = "<h4>Administradores registrados</h4>";
-  let errores = 0;
+  const creados = [], fallados = [];
 
   for (const admin of state.pendingAdmins) {
     const empresa = await resolverEmpresa(admin.empresa, admin.cuit);
     if (empresa.error) {
-      showToast(`Error empresa de ${admin.nombre}: ${empresa.error}`, "toast-error");
-      errores++;
+      fallados.push({ admin, detalle: empresa.error });
       continue;
     }
-    const empresa_id = empresa.id;
 
     const { data, error } = await db.functions.invoke("alta-usuario", {
-      body: { nombre: admin.nombre, apellido: admin.apellido, dni: admin.dni, mail: admin.mail, empresa_id }
+      body: { nombre: admin.nombre, apellido: admin.apellido, dni: admin.dni,
+              mail: admin.mail, empresa_id: empresa.id }
     });
 
     if (error || data?.error) {
-       showToast(`Error con ${admin.nombre}: ` + (data?.error || "No se pudo registrar"), "toast-error");
-       errores++;
+      fallados.push({ admin, detalle: explicarError(data?.error || error?.message) });
     } else {
-       htmlResult += `
-         <p>${escapeHtml(admin.nombre)} ${escapeHtml(admin.apellido)} ${data.mail_enviado ? "(mail enviado)" : "(no se pudo mandar el mail)"}:</p>
-         <div class="credencial"><span>Usuario</span><strong>${escapeHtml(data.usuario)}</strong></div>
-         <div class="credencial"><span>Contraseña temporal</span><strong>${escapeHtml(data.password)}</strong></div>`;
+      creados.push({ admin, data });
     }
   }
 
   DOM.btnSubmitAdmin.disabled = false;
-  DOM.btnSubmitAdmin.textContent = "Registrar";
 
-  if (errores < state.pendingAdmins.length) {
-    DOM.adminResultado.style.display = "block";
-    DOM.adminResultado.innerHTML = htmlResult + `<p class="credencial-nota">Se le pedirá cambiarla en el primer ingreso.</p>`;
-    showToast("Proceso terminado", "toast-success");
+  // Los que fallaron quedan en la lista para corregirlos y reintentar;
+  // los que salieron bien se van.
+  state.pendingAdmins = fallados.map(f => f.admin);
+
+  // El resultado siempre se muestra, aunque hayan fallado todos: antes en ese
+  // caso no aparecía nada y parecía que el botón no había hecho nada.
+  let html = "";
+
+  if (creados.length) {
+    html += `<h4>${creados.length} administrador${creados.length === 1 ? "" : "es"} registrado${creados.length === 1 ? "" : "s"}</h4>`;
+    creados.forEach(({ admin, data }) => {
+      html += `
+        <p>${escapeHtml(admin.nombre)} ${escapeHtml(admin.apellido)} ${data.mail_enviado ? "(mail enviado)" : "(no se pudo mandar el mail)"}:</p>
+        <div class="credencial"><span>Usuario</span><strong>${escapeHtml(data.usuario)}</strong></div>
+        <div class="credencial"><span>Contraseña temporal</span><strong>${escapeHtml(data.password)}</strong></div>`;
+    });
+    html += `<p class="credencial-nota">Se le pedirá cambiarla en el primer ingreso.</p>`;
   }
 
-  state.pendingAdmins = [];
+  if (fallados.length) {
+    html += `<h4>${fallados.length} no se pudo${fallados.length === 1 ? "" : "s"} registrar</h4>
+      <p class="credencial-nota">Siguen en la lista de abajo: corregí el dato y volvé a apretar Registrar.</p>
+      <ul class="csv-problemas">${fallados.map(f =>
+        `<li><strong>${escapeHtml(f.admin.nombre)} ${escapeHtml(f.admin.apellido)}</strong> — ${escapeHtml(f.detalle)}</li>`
+      ).join("")}</ul>`;
+  }
+
+  DOM.adminResultado.style.display = "block";
+  DOM.adminResultado.className = fallados.length && !creados.length
+    ? "alta-resultado alta-resultado-error" : "alta-resultado";
+  DOM.adminResultado.innerHTML = html;
+  DOM.adminResultado.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
   renderPendingAdmins();
   await cargarDatosSuperadmin();
 }
@@ -2173,7 +2313,7 @@ async function guardarEditAdmin(e) {
   DOM.btnSubmitEditAdmin.disabled = false;
 
   if (error) {
-    showToast("No se pudo guardar: " + error.message, "toast-error");
+    showToast("No se pudo guardar: " + explicarError(error.message), "toast-error");
     return;
   }
   showToast("Administrador actualizado");
@@ -2251,7 +2391,7 @@ function cancelarEdicionChofer() {
 async function alternarBajaChofer(c) {
   const { error } = await db.from("usuarios").update({ activo: !c.activo }).eq("id", c.id);
   if (error) {
-    showToast("No se pudo actualizar: " + error.message, "toast-error");
+    showToast("No se pudo actualizar: " + explicarError(error.message), "toast-error");
     return;
   }
   showToast(c.activo ? "Conductor dado de baja" : "Conductor reactivado");
@@ -2281,7 +2421,7 @@ async function guardarEditChofer(e) {
   DOM.btnSubmitEditChofer.disabled = false;
 
   if (error) {
-    showToast("No se pudo guardar: " + error.message, "toast-error");
+    showToast("No se pudo guardar: " + explicarError(error.message), "toast-error");
     return;
   }
   showToast("Chofer actualizado");
@@ -2327,7 +2467,7 @@ async function actualizarCuenta(e) {
   DOM.btnSubmitCuenta.textContent = "Actualizar Contraseña";
 
   if (error) {
-    showToast("Error al actualizar: " + error.message, "toast-error");
+    showToast("Error al actualizar: " + explicarError(error.message), "toast-error");
     return;
   }
 
@@ -2492,18 +2632,14 @@ function conectarEventos() {
     DOM.usuarioPreview.textContent = "—";
   });
   [DOM.formNombre, DOM.formApellido].forEach(inp =>
-    inp.addEventListener("input", () => {
-      DOM.usuarioPreview.textContent =
-        sugerirUsuario(DOM.formNombre.value, DOM.formApellido.value);
-    }));
+    inp.addEventListener("input", () =>
+      actualizarPreviewUsuario(DOM.usuarioPreview, DOM.formNombre, DOM.formApellido)));
 
   DOM.adminForm.addEventListener("submit", guardarAdmin);
   DOM.btnAddAnotherAdmin.addEventListener("click", agregarAdminPendiente);
   [DOM.adminNombre, DOM.adminApellido].forEach(inp =>
-    inp.addEventListener("input", () => {
-      DOM.adminUsuarioPreview.textContent =
-        sugerirUsuario(DOM.adminNombre.value, DOM.adminApellido.value);
-    }));
+    inp.addEventListener("input", () =>
+      actualizarPreviewUsuario(DOM.adminUsuarioPreview, DOM.adminNombre, DOM.adminApellido)));
 
   DOM.editAdminForm.addEventListener("submit", guardarEditAdmin);
   DOM.btnCancelEditAdmin.addEventListener("click", cancelarEdicionAdmin);
