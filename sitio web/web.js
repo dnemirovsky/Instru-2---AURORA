@@ -351,7 +351,7 @@ async function entrarAlPanel() {
   if (perfil.rol === "chofer") {
     await db.auth.signOut();
     mostrarLogin();
-    mostrarErrorLogin("Este panel es solo para administradores. Los conductores usan la app.");
+    mostrarErrorLogin("Este panel es solo para administradores. Ingresá desde la app.");
     return;
   }
 

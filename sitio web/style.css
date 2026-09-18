@@ -5,8 +5,8 @@
 
 :root {
   /* Paleta Base Corporativa */
-  --bg-main: #f8fafc;
-  --bg-card: #ffffff;
+  --bg-main: #fffffe;
+  --bg-card: #fffdf9;
   --bg-subtle: #fffbf2;
   --text-primary: #0f172a;
   --text-secondary: #475569;
@@ -239,8 +239,8 @@ body {
 }
 
 .kpi-card.active-filter {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+  border-color: #64748b;
+  box-shadow: 0 0 0 2px rgba(100, 116, 139, 0.18);
 }
 
 .kpi-header {
@@ -2285,7 +2285,7 @@ body {
 .swatch-danger  { background: var(--danger-color); }
 
 .kpi-card.kpi-active {
-  outline: 2px solid var(--primary-color);
+  outline: 2px solid #64748b;
   outline-offset: -2px;
 }
 
@@ -2794,28 +2794,28 @@ body {
   width: 62vw; height: 62vw;
   top: -22vw; left: -12vw;
   background: radial-gradient(circle, rgba(242, 119, 141, 0.55) 0%, rgba(242, 119, 141, 0) 70%);
-  animation: deriva-1 24s ease-in-out infinite;
+  animation: deriva-1 22s ease-in-out infinite;
 }
 
 .banda-2 {
   width: 55vw; height: 55vw;
   top: 8vw; right: -18vw;
   background: radial-gradient(circle, rgba(124, 92, 255, 0.5) 0%, rgba(124, 92, 255, 0) 70%);
-  animation: deriva-2 30s ease-in-out infinite;
+  animation: deriva-2 21s ease-in-out infinite;
 }
 
 .banda-3 {
   width: 52vw; height: 48vw;
   bottom: -18vw; left: 18vw;
   background: radial-gradient(circle, rgba(249, 160, 15, 0.42) 0%, rgba(249, 160, 15, 0) 70%);
-  animation: deriva-3 27s ease-in-out infinite;
+  animation: deriva-3 19s ease-in-out infinite;
 }
 
 .banda-4 {
   width: 34vw; height: 34vw;
   bottom: 6vw; right: 8vw;
   background: radial-gradient(circle, rgba(255, 215, 210, 0.34) 0%, rgba(255, 215, 210, 0) 70%);
-  animation: deriva-4 21s ease-in-out infinite;
+  animation: deriva-4 16s ease-in-out infinite;
 }
 
 @keyframes deriva-1 {
@@ -2838,7 +2838,7 @@ body {
 
 @keyframes deriva-4 {
   0%, 100% { transform: translate(0, 0) scale(1); }
-  50%      { transform: translate(-8vw, -10vw) scale(1.2); }
+  50%      { transform: translate(-8vw, -12vw) scale(1.2); }
 }
 
 /* ---------- Destellos ---------- */
