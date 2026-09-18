@@ -2081,7 +2081,7 @@ body {
   position: relative;
   z-index: 1;
   width: 100%;
-  max-width: 390px;
+  max-width: 460px;
   background: rgba(255, 251, 242, 0.97); 
   backdrop-filter: blur(14px) saturate(120%);
   border: 1px solid rgba(255, 255, 255, 0.5);
@@ -2741,6 +2741,7 @@ body {
   width: 92px;
   height: 92px;
   margin-bottom: 14px;
+  transform: translateX(-3px);
 }
 
 /* Resplandor detrás del logo, latiendo muy suave */
@@ -2806,7 +2807,7 @@ body {
 .banda-3 {
   width: 52vw; height: 48vw;
   bottom: -18vw; left: 18vw;
-  background: radial-gradient(circle, rgba(249, 160, 15, 0.42) 0%, rgba(59, 130, 246, 0) 70%);
+  background: radial-gradient(circle, rgba(249, 160, 15, 0.42) 0%, rgba(249, 160, 15, 0) 70%);
   animation: deriva-3 27s ease-in-out infinite;
 }
 

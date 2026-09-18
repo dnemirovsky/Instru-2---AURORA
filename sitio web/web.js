@@ -2510,8 +2510,8 @@ function cambiarVista(vista) {
   DOM.views[vista].style.display = "block";
   DOM.currentViewLabel.textContent =
     { inicio: "Inicio", historial: "Ver historial", alta: "Registrar nuevo conductor",
-      "superadmin-add": "Agregar Admin", "superadmin-edit": "Editar Admins",
-      "admin-edit": "Editar Choferes", cuenta: "Mi Cuenta" }[vista];
+      "superadmin-add": "Agregar administradores", "superadmin-edit": "Editar administradores",
+      "admin-edit": "Editar choferes", cuenta: "Mi cuenta" }[vista];
   DOM.dropdownItems.forEach(i => i.classList.toggle("active", i.dataset.view === vista));
   DOM.navDropdownMenu.style.display = "none";
   if (vista === "historial") renderHistorial();
