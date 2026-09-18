@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AURORA | Panel de Administración</title>
+  <title>aurora | Panel de Administración</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -16,15 +16,32 @@
        Se muestra primero. El panel queda oculto hasta que haya sesión.
   ======================================================================= -->
   <div id="loginScreen" class="login-screen">
+
+    <!-- Fondo animado: bandas de color que se mueven lento, como una aurora.
+         Es todo decorativo, por eso queda oculto para lectores de pantalla. -->
+    <div class="aurora-fondo" aria-hidden="true">
+      <span class="aurora-banda banda-1"></span>
+      <span class="aurora-banda banda-2"></span>
+      <span class="aurora-banda banda-3"></span>
+      <span class="aurora-banda banda-4"></span>
+      <div class="aurora-destellos">
+        <span style="--x:14%;  --y:22%; --t:0s"></span>
+        <span style="--x:78%;  --y:16%; --t:1.4s"></span>
+        <span style="--x:88%;  --y:62%; --t:2.6s"></span>
+        <span style="--x:22%;  --y:74%; --t:3.8s"></span>
+        <span style="--x:60%;  --y:86%; --t:5.1s"></span>
+        <span style="--x:44%;  --y:10%; --t:6.3s"></span>
+      </div>
+      <div class="aurora-grano"></div>
+    </div>
+
     <div class="login-card">
       <div class="login-brand">
-        <div class="brand-icon">
-          <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-            <circle cx="12" cy="12" r="3"></circle>
-          </svg>
+        <div class="login-logo-wrap">
+          <img src="aurora-logo.png" alt="" class="login-logo" />
         </div>
-        <h1>AURORA</h1>
+        <h1>aurora</h1>
+        <p class="login-tagline">Sistema de detección de somnolencia en conductores</p>
       </div>
 
       <form id="loginForm" class="login-form" novalidate>
@@ -86,13 +103,10 @@
       <div class="brand-nav-group">
         <div class="brand">
           <div class="brand-icon">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-              <circle cx="12" cy="12" r="3"></circle>
-            </svg>
+            <img src="aurora-logo.png" alt="" />
           </div>
           <div class="brand-text">
-            <h1>AURORA</h1>
+            <h1>aurora</h1>
           </div>
         </div>
 

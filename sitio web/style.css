@@ -7,7 +7,7 @@
   /* Paleta Base Corporativa */
   --bg-main: #f8fafc;
   --bg-card: #ffffff;
-  --bg-subtle: #f1f5f9;
+  --bg-subtle: #fffbf2;
   --text-primary: #0f172a;
   --text-secondary: #475569;
   --text-muted: #94a3b8;
@@ -31,9 +31,9 @@
   --danger-text: #991b1b;
 
   /* Primarios / Interfaz */
-  --primary-color: #2563eb;
-  --primary-hover: #1d4ed8;
-  --primary-light: #eff6ff;
+  --primary-color: #f2778d;
+  --primary-hover: #e05a75;
+  --primary-light: #fdeef1;
 
   /* Sombras y Radios */
   --radius-sm: 6px;
@@ -103,7 +103,7 @@ body {
 .brand-text h1 {
   font-size: 1.25rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   color: #ffffff;
   line-height: 1.2;
 }
@@ -1274,7 +1274,7 @@ body {
 .btn-primary-action {
   background-color: var(--primary-color);
   color: #ffffff;
-  border: 1px solid #1d4ed8;
+  border: 1px solid #f2778d;
   flex: 1 1 150px;
 }
 .btn-primary-action:hover {
@@ -2069,18 +2069,33 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(160deg, #0f172a 0%, #1e293b 100%);
+  /* Base oscura; el color lo ponen las bandas animadas de abajo. */
+  background: radial-gradient(130% 110% at 50% 0%, #1b1235 0%, #0d1026 45%, #080a18 100%);
   padding: 24px;
   z-index: 2000;
+  overflow: hidden;
+  isolation: isolate;
 }
 
 .login-card {
+  position: relative;
+  z-index: 1;
   width: 100%;
-  max-width: 380px;
-  background: var(--bg-card);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  padding: 36px 32px 32px;
+  max-width: 390px;
+  background: rgba(255, 251, 242, 0.97); 
+  backdrop-filter: blur(14px) saturate(120%);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 20px;
+  box-shadow:
+    0 24px 70px -18px rgba(8, 10, 24, 0.75),
+    0 0 0 1px rgba(242, 119, 141, 0.08);
+  padding: 38px 32px 32px;
+  animation: login-entrada 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes login-entrada {
+  from { opacity: 0; transform: translateY(14px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
 }
 
 .login-brand {
@@ -2101,8 +2116,8 @@ body {
 }
 
 .login-brand h1 {
-  font-size: 1.5rem;
-  letter-spacing: 0.08em;
+  font-size: 1.40rem;
+  letter-spacing: -0.02em;
   font-weight: 700;
 }
 
@@ -2710,4 +2725,212 @@ body {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-weight: 600;
   color: var(--normal-text);
+}
+/* =========================================================
+   Pantalla de login: logo y fondo animado tipo aurora
+   Paleta tomada del propio logo: rosa #f2778d y crema #ffd7d2,
+   más un violeta y un azul para dar profundidad.
+   ========================================================= */
+
+/* ---------- Logo ---------- */
+.login-logo-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 92px;
+  height: 92px;
+  margin-bottom: 14px;
+}
+
+/* Resplandor detrás del logo, latiendo muy suave */
+.login-logo-wrap::before {
+  content: "";
+  position: absolute;
+  inset: -18%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(242, 119, 141, 0.34) 0%, rgba(242, 119, 141, 0) 68%);
+  animation: logo-latido 4.5s ease-in-out infinite;
+}
+
+.login-logo {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 14px rgba(242, 119, 141, 0.45));
+}
+
+@keyframes logo-latido {
+  0%, 100% { transform: scale(1);    opacity: 0.85; }
+  50%      { transform: scale(1.14); opacity: 1; }
+}
+
+.login-tagline {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ---------- Fondo animado ---------- */
+.aurora-fondo {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;   /* nunca se interpone con el formulario */
+}
+
+/* Cada banda es una mancha de color enorme y desenfocada que se desplaza
+   lento. Superpuestas y con distinta velocidad, dan el efecto de aurora. */
+.aurora-banda {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(70px);
+  will-change: transform;
+}
+
+.banda-1 {
+  width: 62vw; height: 62vw;
+  top: -22vw; left: -12vw;
+  background: radial-gradient(circle, rgba(242, 119, 141, 0.55) 0%, rgba(242, 119, 141, 0) 70%);
+  animation: deriva-1 24s ease-in-out infinite;
+}
+
+.banda-2 {
+  width: 55vw; height: 55vw;
+  top: 8vw; right: -18vw;
+  background: radial-gradient(circle, rgba(124, 92, 255, 0.5) 0%, rgba(124, 92, 255, 0) 70%);
+  animation: deriva-2 30s ease-in-out infinite;
+}
+
+.banda-3 {
+  width: 52vw; height: 48vw;
+  bottom: -18vw; left: 18vw;
+  background: radial-gradient(circle, rgba(249, 160, 15, 0.42) 0%, rgba(59, 130, 246, 0) 70%);
+  animation: deriva-3 27s ease-in-out infinite;
+}
+
+.banda-4 {
+  width: 34vw; height: 34vw;
+  bottom: 6vw; right: 8vw;
+  background: radial-gradient(circle, rgba(255, 215, 210, 0.34) 0%, rgba(255, 215, 210, 0) 70%);
+  animation: deriva-4 21s ease-in-out infinite;
+}
+
+@keyframes deriva-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(8vw, 6vw) scale(1.12); }
+  66%      { transform: translate(-4vw, 10vw) scale(0.94); }
+}
+
+@keyframes deriva-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  40%      { transform: translate(-10vw, 8vw) scale(1.16); }
+  75%      { transform: translate(-3vw, -6vw) scale(0.95); }
+}
+
+@keyframes deriva-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  45%      { transform: translate(12vw, -8vw) scale(1.1); }
+  80%      { transform: translate(-6vw, -3vw) scale(0.96); }
+}
+
+@keyframes deriva-4 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(-8vw, -10vw) scale(1.2); }
+}
+
+/* ---------- Destellos ---------- */
+.aurora-destellos span {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 8px 2px rgba(255, 255, 255, 0.75);
+  opacity: 0;
+  animation: titilar 7s ease-in-out infinite;
+  animation-delay: var(--t);
+}
+
+@keyframes titilar {
+  0%, 100%  { opacity: 0;    transform: scale(0.6); }
+  8%, 16%   { opacity: 0.95; transform: scale(1.35); }
+  30%       { opacity: 0;    transform: scale(0.8); }
+}
+
+/* ---------- Grano ---------- */
+/* Textura fina encima de todo, para que los degradés no se vean planos.
+   Es un SVG generado en el momento, no un archivo aparte. */
+.aurora-grano {
+  position: absolute;
+  inset: 0;
+  opacity: 0.16;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='r'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23r)'/%3E%3C/svg%3E");
+}
+
+/* ---------- Respeto por quien prefiere no ver movimiento ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .aurora-banda,
+  .aurora-destellos span,
+  .login-logo-wrap::before,
+  .login-card {
+    animation: none !important;
+  }
+}
+
+/* ---------- Pantallas chicas ---------- */
+@media (max-width: 520px) {
+  .aurora-banda { filter: blur(50px); }        /* el desenfoque grande pesa en celulares */
+  .login-logo-wrap { width: 78px; height: 78px; }
+}
+
+/* =========================================================
+   Campos del login: color propio, ignorando el autocompletado
+   ========================================================= */
+
+/* Cambiá estos dos valores y listo */
+.login-card {
+  --campo-fondo: #fdfaf6;   /* fondo del campo */
+  --campo-borde: #fbede6;   /* bordecito */
+}
+
+.login-card .form-input {
+  background-color: var(--campo-fondo);
+  border-color: var(--campo-borde);
+}
+
+.login-card .form-input:focus {
+  background-color: #ffffff;
+  border-color: #e4899c;
+  box-shadow: 0 0 0 3px rgba(228, 137, 156, 0.18);
+}
+
+/* Chrome no deja cambiar el fondo del autocompletado, pero sí la sombra
+   interna: una sombra enorme del color que queremos lo tapa por completo. */
+.login-card .form-input:-webkit-autofill,
+.login-card .form-input:-webkit-autofill:hover,
+.login-card .form-input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 100px var(--campo-fondo) inset;
+  -webkit-text-fill-color: var(--text-primary);
+  caret-color: var(--text-primary);
+  transition: background-color 9999s;   /* evita el parpadeo celeste inicial */
+}
+
+/* Logo de AURORA en el header, en lugar del ícono viejo */
+.brand-icon {
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 4px;
+  overflow: hidden;
+}
+
+.brand-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
