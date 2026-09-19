@@ -6,7 +6,7 @@
   <title>aurora | Panel de Administración</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -224,27 +224,10 @@
         <div class="kpi-card kpi-total" data-filter="all" id="kpiTotalCard">
           <div class="kpi-header">
             <span class="kpi-title">Conductores</span>
-            <span class="kpi-icon">
-              <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                <circle cx="9" cy="7" r="4"></circle>
-              </svg>
-            </span>
+            <span class="kpi-tag tag-neutral" id="countEnRuta">0 en viaje</span>
           </div>
           <div class="kpi-value-row">
             <span class="kpi-number" id="countTotal">0</span>
-            <span class="kpi-tag tag-neutral" id="countEnRuta">0 en viaje</span>
-          </div>
-        </div>
-
-        <div class="kpi-card kpi-normal" data-filter="normal" id="kpiNormalCard">
-          <div class="kpi-header">
-            <span class="kpi-title">Sin alertas</span>
-            <span class="status-badge badge-normal"><span class="status-bullet"></span> Normal</span>
-          </div>
-          <div class="kpi-value-row">
-            <span class="kpi-number text-normal" id="countNormal">0</span>
-            <span class="kpi-percentage" id="pctNormal">0%</span>
           </div>
         </div>
 
@@ -333,7 +316,6 @@
             <div class="empty-icon">🔍</div>
             <h3>No hay viajes en curso</h3>
             <p>Mirá el historial para ver los anteriores.</p>
-            <button id="resetFiltersBtn" class="btn btn-secondary">Restablecer filtros</button>
           </div>
         </section>
 

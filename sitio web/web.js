@@ -82,15 +82,12 @@ const DOM = {
 
   countTotal: $("countTotal"),
   countEnRuta: $("countEnRuta"),
-  countNormal: $("countNormal"),
   countWarning: $("countWarning"),
   countDanger: $("countDanger"),
-  pctNormal: $("pctNormal"),
   pctWarning: $("pctWarning"),
   pctDanger: $("pctDanger"),
   kpiCards: {
     all: $("kpiTotalCard"),
-    normal: $("kpiNormalCard"),
     precaucion: $("kpiWarningCard"),
     alerta: $("kpiDangerCard")
   },
@@ -104,7 +101,6 @@ const DOM = {
   driversTableWrapper: $("driversTableWrapper"),
   driversTableBody: $("driversTableBody"),
   emptyState: $("emptyState"),
-  resetFiltersBtn: $("resetFiltersBtn"),
   eventsList: $("eventsList"),
   eventsCount: $("eventsCount"),
 
@@ -768,10 +764,8 @@ function renderKPIs() {
 
   DOM.countTotal.textContent = total;
   DOM.countEnRuta.textContent = "En viaje";
-  DOM.countNormal.textContent = n;
   DOM.countWarning.textContent = p;
   DOM.countDanger.textContent = a;
-  DOM.pctNormal.textContent = pct(n);
   DOM.pctWarning.textContent = pct(p);
   DOM.pctDanger.textContent = pct(a);
 
@@ -2676,14 +2670,6 @@ function conectarEventos() {
     DOM.searchInput.value = "";
     state.searchQuery = "";
     DOM.clearSearchBtn.style.display = "none";
-    renderDrivers();
-  });
-  DOM.resetFiltersBtn.addEventListener("click", () => {
-    state.searchQuery = "";
-    state.activeFilter = "all";
-    DOM.searchInput.value = "";
-    DOM.filterButtons.forEach(b => b.classList.toggle("active", b.dataset.status === "all"));
-    renderKPIs();
     renderDrivers();
   });
 
