@@ -24,13 +24,21 @@
       <span class="aurora-banda banda-2"></span>
       <span class="aurora-banda banda-3"></span>
       <span class="aurora-banda banda-4"></span>
+      <!-- --x/--y posición · --t cuándo arranca · --s tamaño (1 = el mayor)
+           --o intensidad · --dur cada cuánto vuelve a titilar -->
       <div class="aurora-destellos">
-        <span style="--x:14%;  --y:22%; --t:0s"></span>
-        <span style="--x:78%;  --y:16%; --t:1.4s"></span>
-        <span style="--x:88%;  --y:62%; --t:2.6s"></span>
-        <span style="--x:22%;  --y:74%; --t:3.8s"></span>
-        <span style="--x:60%;  --y:86%; --t:5.1s"></span>
-        <span style="--x:44%;  --y:10%; --t:6.3s"></span>
+        <span style="--x:14%; --y:22%; --t:1.5s;  --s:1;    --o:0.9;  --dur:12s"></span>
+        <span style="--x:78%; --y:16%; --t:2.7s;  --s:0.65; --o:0.7;  --dur:16s"></span>
+        <span style="--x:88%; --y:62%; --t:5.4s;  --s:0.45; --o:0.55; --dur:15s"></span>
+        <span style="--x:22%; --y:74%; --t:8.1s;  --s:1;    --o:0.85; --dur:20s"></span>
+        <span style="--x:60%; --y:86%; --t:10.8s; --s:0.45; --o:0.5;  --dur:12s"></span>
+        <span style="--x:44%; --y:10%; --t:13.5s; --s:0.65; --o:0.75; --dur:14s"></span>
+        <span style="--x:33%; --y:44%; --t:1.3s;  --s:0.45; --o:0.45; --dur:16s"></span>
+        <span style="--x:69%; --y:38%; --t:4.1s;  --s:0.65; --o:0.65; --dur:11s"></span>
+        <span style="--x:8%;  --y:56%; --t:6.8s;  --s:0.45; --o:0.5;  --dur:12s"></span>
+        <span style="--x:92%; --y:30%; --t:9.5s;  --s:0.45; --o:0.6;  --dur:17s"></span>
+        <span style="--x:52%; --y:66%; --t:12.2s; --s:0.65; --o:0.7;  --dur:14s"></span>
+        <span style="--x:26%; --y:8%;  --t:16s;   --s:1;    --o:0.8;  --dur:20s"></span>
       </div>
       <div class="aurora-grano"></div>
     </div>
@@ -101,7 +109,7 @@
   <header class="top-header">
     <div class="header-container">
       <div class="brand-nav-group">
-        <div class="brand">
+        <div class="brand" id="brandHome" role="button" tabindex="0" title="Volver al inicio">
           <div class="brand-icon">
             <img src="aurora-logo.png" alt="" />
           </div>
@@ -183,14 +191,16 @@
       </div>
 
       <div class="header-actions">
-        <div class="clock-display" id="currentTime">--:--:--</div>
-        <button id="logoutBtn" class="btn btn-outline" title="Cerrar sesión">
+        <div class="clock-display" id="clockBtn" role="button" tabindex="0"
+             title="Tocá para cambiar entre 24 y 12 horas">
+          <span class="clock-flip" id="currentTime">--:--</span>
+        </div>
+        <button id="logoutBtn" class="btn btn-outline btn-solo-icono" title="Cerrar sesión" aria-label="Cerrar sesión">
           <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
             <polyline points="16 17 21 12 16 7"></polyline>
             <line x1="21" y1="12" x2="9" y2="12"></line>
           </svg>
-          <span>Salir</span>
         </button>
       </div>
     </div>

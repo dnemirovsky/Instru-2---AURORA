@@ -67,6 +67,7 @@ const DOM = {
 
   navMenuBtn: $("navMenuBtn"),
   navDropdownMenu: $("navDropdownMenu"),
+  navDropdownWrapper: $("navDropdownWrapper"),
   currentViewLabel: $("currentViewLabel"),
   dropdownItems: document.querySelectorAll(".dropdown-item"),
   views: {
@@ -171,6 +172,8 @@ const DOM = {
   modalEventsList: $("modalEventsList"),
 
   currentTime: $("currentTime"),
+  clockBtn: $("clockBtn"),
+  brandHome: $("brandHome"),
   toastContainer: $("toastContainer"),
 
   adminForm: $("adminForm"),
@@ -2498,10 +2501,47 @@ function showToast(mensaje, clase = "toast-success") {
   setTimeout(() => t.remove(), 4000);
 }
 
+/**
+ * Reloj del header. Arranca en 24 horas (20:23) y al tocarlo pasa a 12 horas
+ * (8:23 pm). Sin segundos: es un reloj, no un cronómetro.
+ */
+let reloj12h = false;
+
+function textoHora(fecha) {
+  if (!reloj12h) {
+    return fecha.toLocaleTimeString("es-AR", {
+      hour: "2-digit", minute: "2-digit", hour12: false
+    });
+  }
+  // El español rioplatense devuelve "8:23 p. m."; lo dejamos como "8:23 pm".
+  return fecha.toLocaleTimeString("es-AR", {
+    hour: "numeric", minute: "2-digit", hour12: true
+  }).replace(/\s*a\.\s*m\.?/i, " am").replace(/\s*p\.\s*m\.?/i, " pm");
+}
+
 function arrancarReloj() {
-  const tick = () => DOM.currentTime.textContent = new Date().toLocaleTimeString("es-AR");
+  const tick = () => DOM.currentTime.textContent = textoHora(new Date());
   tick();
   if (!state.clockInterval) state.clockInterval = setInterval(tick, 1000);
+
+  if (!DOM.clockBtn.dataset.conClic) {
+    DOM.clockBtn.dataset.conClic = "1";
+
+    // El texto gira sobre su eje horizontal, como una hoja que se da vuelta.
+    // El formato se cambia a mitad de camino, cuando está de canto y no se ve.
+    const alternar = () => {
+      if (DOM.currentTime.classList.contains("girando")) return;   // un giro por vez
+      DOM.currentTime.classList.add("girando");
+      setTimeout(() => { reloj12h = !reloj12h; tick(); }, 160);
+      DOM.currentTime.addEventListener("animationend",
+        () => DOM.currentTime.classList.remove("girando"), { once: true });
+    };
+
+    DOM.clockBtn.addEventListener("click", alternar);
+    DOM.clockBtn.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); alternar(); }
+    });
+  }
 }
 
 function cambiarVista(vista) {
@@ -2514,6 +2554,8 @@ function cambiarVista(vista) {
       "admin-edit": "Editar choferes", cuenta: "Mi cuenta" }[vista];
   DOM.dropdownItems.forEach(i => i.classList.toggle("active", i.dataset.view === vista));
   DOM.navDropdownMenu.style.display = "none";
+  DOM.navDropdownWrapper.classList.remove("open");
+  DOM.navMenuBtn.classList.remove("active-dropdown");
   if (vista === "historial") renderHistorial();
   if (vista === "admin-edit") renderChoferesEdit();
   if (vista === "cuenta") renderCuenta();
@@ -2544,12 +2586,58 @@ function conectarEventos() {
     dibujarGraficoViaje();
   });
 
+  // El logo del header devuelve a la pantalla principal del rol.
+  DOM.brandHome.addEventListener("click", () => cambiarVista(vistaInicial()));
+  DOM.brandHome.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); cambiarVista(vistaInicial()); }
+  });
+
+  // ---- Menú desplegable ----
+  // Se abre al acercar el mouse, y también con clic o teclado.
+
+  /** Cuánto tarda en aparecer cada ítem respecto del anterior. */
+  const ESCALON_MS = 45;
+
+  let cierreMenu = null;
+
+  function abrirMenu() {
+    clearTimeout(cierreMenu);
+    DOM.navDropdownMenu.style.display = "block";
+    DOM.navDropdownWrapper.classList.add("open");
+    DOM.navMenuBtn.classList.add("active-dropdown");
+    DOM.navMenuBtn.setAttribute("aria-expanded", "true");
+
+    // El escalonado cuenta solo los ítems visibles para este rol: si contara
+    // los ocultos quedarían huecos en la secuencia.
+    const visibles = [...DOM.dropdownItems].filter(i => i.style.display !== "none");
+    visibles.forEach((item, i) => {
+      item.style.animation = "none";
+      void item.offsetWidth;                    // reinicia la animación
+      item.style.animation = "";
+      item.style.animationDelay = `${i * ESCALON_MS}ms`;
+    });
+  }
+
+  function cerrarMenu() {
+    DOM.navDropdownMenu.style.display = "none";
+    DOM.navDropdownWrapper.classList.remove("open");
+    DOM.navMenuBtn.classList.remove("active-dropdown");
+    DOM.navMenuBtn.setAttribute("aria-expanded", "false");
+  }
+
+  DOM.navDropdownWrapper.addEventListener("mouseenter", abrirMenu);
+  DOM.navDropdownWrapper.addEventListener("mouseleave", () => {
+    // Un respiro antes de cerrar, por si el mouse se sale un instante.
+    cierreMenu = setTimeout(cerrarMenu, 220);
+  });
+
   DOM.navMenuBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    const abierto = DOM.navDropdownMenu.style.display === "block";
-    DOM.navDropdownMenu.style.display = abierto ? "none" : "block";
+    DOM.navDropdownMenu.style.display === "block" ? cerrarMenu() : abrirMenu();
   });
-  document.addEventListener("click", () => DOM.navDropdownMenu.style.display = "none");
+
+  document.addEventListener("click", cerrarMenu);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") cerrarMenu(); });
   DOM.dropdownItems.forEach(item =>
     item.addEventListener("click", () => cambiarVista(item.dataset.view)));
 
