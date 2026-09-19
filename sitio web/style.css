@@ -3069,3 +3069,98 @@ body {
 .brand:hover .brand-text h1 {
   color: var(--primary-color);
 }
+/* =========================================================
+   Nubecitas del header
+   Aparecen al pasar el mouse por el logo y se van despacio al salir.
+   Mismos colores que el fondo del login.
+   ========================================================= */
+
+/* El contenido va por encima de las nubes */
+.top-header .header-container {
+  position: relative;
+  z-index: 1;
+}
+
+.aurora-header {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;          /* recorta las nubes sin recortar el menú */
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0;
+  /* Al salir se apagan lento; al entrar, algo más rápido (ver abajo). */
+  transition: opacity 1.4s ease-out;
+}
+
+.top-header.nubes-visibles .aurora-header {
+  opacity: 1;
+  transition: opacity 0.7s ease-in;
+}
+
+.nube {
+  position: absolute;
+  border-radius: 50%;
+  /* Desenfoque grande: es lo que convierte la pelota de luz en neblina */
+  filter: blur(64px);
+  will-change: transform;
+}
+
+/* Manchas anchas y superpuestas entre sí, no una al lado de la otra.
+   Al ser más anchas que la distancia que las separa, sus bordes se mezclan. */
+.nube-1 {
+  width: 46vw; height: 300px;
+  top: -190px; left: -8%;
+  background: radial-gradient(circle, rgba(242, 119, 141, 0.5) 0%, rgba(242, 119, 141, 0) 70%);
+  animation: nube-deriva-1 11s ease-in-out infinite;
+}
+
+.nube-2 {
+  width: 42vw; height: 280px;
+  top: -165px; left: 16%;
+  background: radial-gradient(circle, rgba(124, 92, 255, 0.46) 0%, rgba(124, 92, 255, 0) 70%);
+  animation: nube-deriva-2 15s ease-in-out infinite;
+}
+
+.nube-3 {
+  width: 48vw; height: 310px;
+  top: -200px; left: 38%;
+  background: radial-gradient(circle, rgba(249, 160, 15, 0.4) 0%, rgba(249, 160, 15, 0) 70%);
+  animation: nube-deriva-3 13s ease-in-out infinite;
+}
+
+.nube-4 {
+  width: 40vw; height: 270px;
+  top: -155px; left: 64%;
+  background: radial-gradient(circle, rgba(244, 138, 152, 0.5) 0%, rgba(244, 138, 152, 0) 70%);
+  animation: nube-deriva-4 17s ease-in-out infinite;
+}
+
+/* Tres paradas por ciclo y recorridos distintos: así ninguna repite el
+   camino de otra y el conjunto nunca se ve igual dos veces. */
+@keyframes nube-deriva-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  35%      { transform: translate(16vw, 48px) scale(1.3); }
+  70%      { transform: translate(-8vw, -38px) scale(0.85); }
+}
+
+@keyframes nube-deriva-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  40%      { transform: translate(-18vw, -44px) scale(1.38); }
+  75%      { transform: translate(10vw, 36px) scale(0.88); }
+}
+
+@keyframes nube-deriva-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  45%      { transform: translate(19vw, 42px) scale(0.84); }
+  80%      { transform: translate(-11vw, -34px) scale(1.32); }
+}
+
+@keyframes nube-deriva-4 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  30%      { transform: translate(-16vw, 38px) scale(1.34); }
+  65%      { transform: translate(8vw, -46px) scale(0.87); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nube { animation: none; }
+}

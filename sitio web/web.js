@@ -2586,6 +2586,15 @@ function conectarEventos() {
     dibujarGraficoViaje();
   });
 
+  // Al pasar el mouse por el logo se encienden las nubecitas del header.
+  // Se hace con una clase y no solo con :hover en CSS porque la capa de las
+  // nubes es hermana del header-container, no descendiente del logo.
+  const header = document.querySelector(".top-header");
+  DOM.brandHome.addEventListener("mouseenter", () => header.classList.add("nubes-visibles"));
+  DOM.brandHome.addEventListener("mouseleave", () => header.classList.remove("nubes-visibles"));
+  DOM.brandHome.addEventListener("focus", () => header.classList.add("nubes-visibles"));
+  DOM.brandHome.addEventListener("blur", () => header.classList.remove("nubes-visibles"));
+
   // El logo del header devuelve a la pantalla principal del rol.
   DOM.brandHome.addEventListener("click", () => cambiarVista(vistaInicial()));
   DOM.brandHome.addEventListener("keydown", (e) => {
