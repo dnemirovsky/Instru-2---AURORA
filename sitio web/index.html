@@ -78,6 +78,13 @@
           Ingresá tu usuario y el mail con el que te dieron de alta.
           Si coinciden, te mandamos una contraseña temporal nueva.
         </p>
+
+        <div class="aviso-mail">
+          <strong>Antes de pedirla:</strong> el mail puede tardar unos minutos y a veces cae
+          en <strong>correo no deseado</strong>. Solo se puede pedir una contraseña nueva
+          <strong>cada 10 minutos</strong>: si no te llega, esperá ese rato antes de volver
+          a intentar.
+        </div>
         <div class="form-group">
           <label for="recuperarUser">Usuario</label>
           <input type="text" id="recuperarUser" class="form-input" autocomplete="username"
@@ -541,7 +548,7 @@
           <div class="form-grid-2">
             <div class="form-group">
               <label for="formDni">DNI <span class="required-star">*</span></label>
-              <input type="text" id="formDni" class="form-input" placeholder="Ej: 30222222" required />
+              <input type="text" inputmode="numeric" maxlength="9" autocomplete="off" id="formDni" class="form-input" placeholder="Ej: 30222222" required />
               <span class="form-error" id="errDni"></span>
             </div>
             <div class="form-group">
@@ -701,7 +708,7 @@
           <div class="form-grid-2">
             <div class="form-group">
               <label for="adminDni">DNI <span class="required-star">*</span></label>
-              <input type="text" id="adminDni" class="form-input" required />
+              <input type="text" inputmode="numeric" maxlength="9" autocomplete="off" id="adminDni" class="form-input" required />
             </div>
             <div class="form-group">
               <label for="adminMail">Mail <span class="required-star">*</span></label>
@@ -788,7 +795,7 @@
           <div class="form-grid-2">
             <div class="form-group">
               <label for="editAdminDni">DNI <span class="required-star">*</span></label>
-              <input type="text" id="editAdminDni" class="form-input" required />
+              <input type="text" inputmode="numeric" maxlength="9" autocomplete="off" id="editAdminDni" class="form-input" required />
             </div>
             <div class="form-group">
               <label for="editAdminMail">Mail <span class="required-star">*</span></label>
@@ -819,6 +826,17 @@
         </form>
       </div>
 
+      <div class="tabla-herramientas">
+        <label for="filtroEstadoAdmins">Filtrar por estado:</label>
+        <select id="filtroEstadoAdmins" class="form-select select-chico">
+          <option value="todos">Todos</option>
+          <option value="Activo">Activo</option>
+          <option value="Mail enviado">Mail enviado</option>
+          <option value="Mail rechazado">Mail rechazado</option>
+          <option value="Dado de baja">Dado de baja</option>
+        </select>
+      </div>
+
       <div class="drivers-table-container">
         <table class="drivers-table">
           <thead>
@@ -826,7 +844,9 @@
               <th>Administrador</th>
               <th>Usuario</th>
               <th>Empresa</th>
-              <th>Estado</th>
+              <th class="th-ordenable" id="ordenEstadoAdmins" title="Ordenar por estado">
+                Estado <span class="flecha-orden"></span>
+              </th>
               <th class="text-right">Acciones</th>
             </tr>
           </thead>
@@ -876,7 +896,7 @@
           <div class="form-grid-2">
             <div class="form-group">
               <label for="editChoferDni">DNI <span class="required-star">*</span></label>
-              <input type="text" id="editChoferDni" class="form-input" required />
+              <input type="text" inputmode="numeric" maxlength="9" autocomplete="off" id="editChoferDni" class="form-input" required />
             </div>
             <div class="form-group">
               <label for="editChoferMail">Mail <span class="required-star">*</span></label>
@@ -895,13 +915,26 @@
         </form>
       </div>
 
-      <div class="drivers-table-container">
+            <div class="tabla-herramientas">
+        <label for="filtroEstadoChoferes">Filtrar por estado:</label>
+        <select id="filtroEstadoChoferes" class="form-select select-chico">
+          <option value="todos">Todos</option>
+          <option value="Activo">Activo</option>
+          <option value="Mail enviado">Mail enviado</option>
+          <option value="Mail rechazado">Mail rechazado</option>
+          <option value="Dado de baja">Dado de baja</option>
+        </select>
+      </div>
+
+<div class="drivers-table-container">
         <table class="drivers-table">
           <thead>
             <tr>
               <th>Chofer</th>
               <th>Usuario</th>
-              <th>Estado</th>
+              <th class="th-ordenable" id="ordenEstadoChoferes" title="Ordenar por estado">
+                Estado <span class="flecha-orden"></span>
+              </th>
               <th class="text-right">Acciones</th>
             </tr>
           </thead>
@@ -928,6 +961,11 @@
           Estás usando una contraseña temporal. Para seguir usando el panel,
           elegí una contraseña nueva.
         </div>
+        <div class="aviso-mail">
+          Si pedís una contraseña nueva por mail, puede tardar unos minutos y a veces cae en
+          <strong>correo no deseado</strong>. Solo se puede pedir una <strong>cada 10 minutos</strong>.
+        </div>
+
         <form id="cuentaForm" class="driver-form" novalidate>
           <div class="form-section-title">
             Datos registrados

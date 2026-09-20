@@ -3300,3 +3300,124 @@ body {
 }
 
 .kpi-card .status-badge .status-bullet { display: none; }
+/* Aviso sobre los mails: demora, correo no deseado y espera entre pedidos */
+.aviso-mail {
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+  color: var(--warning-text);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+}
+
+/* =========================================================
+   Tablas de administración: filtro, orden y acciones
+   ========================================================= */
+
+/* Barra de filtro arriba de la tabla */
+.tabla-herramientas {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.85rem;
+}
+
+.tabla-herramientas label {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.select-chico {
+  width: auto;
+  min-width: 170px;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.82rem;
+}
+
+/* Encabezado que se puede clickear para ordenar */
+.th-ordenable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+}
+
+.th-ordenable:hover { color: var(--text-primary); }
+
+.th-ordenable.ordenando { color: var(--primary-color); }
+
+.flecha-orden {
+  font-size: 0.65rem;
+  margin-left: 2px;
+}
+
+/* La baja no es un error: es un estado neutro */
+.badge-neutro {
+  background-color: var(--bg-subtle);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}
+
+.badge-neutro .status-bullet { background-color: var(--text-muted); }
+
+/* ---------- Botones de acción de cada fila ----------
+   Editar es la acción de todos los días y va discreta; dar de baja es
+   destructiva y va en rojo, separada, para no confundirlas al apurarse. */
+.acciones-fila {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.85rem;       /* separación clara entre una y otra */
+}
+
+.btn-accion {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 0.38rem 0.8rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.btn-accion-editar {
+  background-color: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.btn-accion-editar:hover {
+  background-color: var(--bg-subtle);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.btn-accion-baja {
+  background-color: var(--danger-bg);
+  color: var(--danger-text);
+  border: 1px solid var(--danger-border);
+}
+
+.btn-accion-baja:hover {
+  background-color: var(--danger-color);
+  border-color: var(--danger-color);
+  color: #ffffff;
+}
+
+.btn-accion-alta {
+  background-color: var(--normal-bg);
+  color: var(--normal-text);
+  border: 1px solid var(--normal-border);
+}
+
+.btn-accion-alta:hover {
+  background-color: var(--normal-color);
+  border-color: var(--normal-color);
+  color: #ffffff;
+}

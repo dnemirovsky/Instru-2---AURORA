@@ -36,6 +36,10 @@ const state = {
 
   empresas: [],
   admins: [],
+  filtroEstadoAdmins: "todos",
+  ordenEstadoAdmins: null,        // null | "asc" | "desc"
+  filtroEstadoChoferes: "todos",
+  ordenEstadoChoferes: null,
   adminEnEdicion: null,
   choferEnEdicion: null,
   pendingAdmins: []
@@ -201,6 +205,10 @@ const DOM = {
   btnCancelEditAdmin: $("btnCancelEditAdmin"),
 
   adminsTableBody: $("adminsTableBody"),
+  filtroEstadoAdmins: $("filtroEstadoAdmins"),
+  ordenEstadoAdmins: $("ordenEstadoAdmins"),
+  filtroEstadoChoferes: $("filtroEstadoChoferes"),
+  ordenEstadoChoferes: $("ordenEstadoChoferes"),
   adminsEmptyState: $("adminsEmptyState"),
 
   editChoferFormContainer: $("editChoferFormContainer"),
@@ -344,6 +352,22 @@ async function entrarAlPanel() {
     await db.auth.signOut();
     mostrarLogin();
     mostrarErrorLogin("El usuario no tiene ficha cargada en el sistema.");
+    return;
+  }
+
+  // ¿La cuenta sigue habilitada? Lo decide la base: el navegador no puede
+  // ver si el administrador de la empresa fue dado de baja.
+  const { data: estado } = await db.rpc("cuenta_habilitada");
+  const motivos = {
+    usuario_inactivo:  "Tu cuenta se encuentra desactivada. Comunicate con tu administrador.",
+    empresa_inactiva:  "La cuenta de tu empresa se encuentra desactivada.",
+    empresa_sin_admin: "La cuenta de tu empresa se encuentra desactivada.",
+    sin_ficha:         "El usuario no tiene ficha cargada en el sistema."
+  };
+  if (estado && estado !== "activa") {
+    await db.auth.signOut();
+    mostrarLogin();
+    mostrarErrorLogin(motivos[estado] || "No podés ingresar en este momento.");
     return;
   }
 
@@ -566,7 +590,7 @@ function dejarDeEscuchar() {
 async function cargarDatos() {
   const [usuariosRes, viajesRes, eventosRes] = await Promise.all([
     db.from("usuarios")
-      .select("id, rol, nombre, apellido, usuario, dni, mail, activo, empresa_id")
+      .select("id, rol, nombre, apellido, usuario, dni, mail, activo, empresa_id, estado_mail, debe_cambiar_password")
       .eq("rol", "chofer")
       .order("apellido"),
     db.from("viajes")
@@ -1344,6 +1368,9 @@ async function altaConductor(e) {
     return;
   }
 
+  const errorDni = validarDni(dni);
+  if (errorDni) { showToast(errorDni, "toast-error"); return; }
+
   DOM.btnSubmitAlta.disabled = true;
   DOM.btnSubmitAlta.textContent = "Registrando...";
 
@@ -1694,6 +1721,73 @@ function filasMapeadas() {
 const MAIL_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
+ * Revisa un DNI y devuelve el error a mostrar, o null si está bien.
+ * Se usa en los cinco lugares donde se cargan o editan personas.
+ */
+/**
+ * Estado que se muestra en las tablas. El orden importa:
+ *   1. si está dado de baja, eso manda sobre todo lo demás;
+ *   2. si alguna vez entró, está activo (aunque el mail haya rebotado);
+ *   3. si el mail rebotó y todavía no entró, hay que avisarle al admin;
+ *   4. si no, el mail salió y estamos esperando que ingrese.
+ */
+function estadoPersona(p) {
+  if (!p.activo) {
+    return { texto: "Dado de baja", clase: "badge-neutro", ayuda: "" };
+  }
+  if (!p.debe_cambiar_password) {
+    return { texto: "Activo", clase: "badge-normal", ayuda: "" };
+  }
+  if (p.estado_mail === "rebotado") {
+    return {
+      texto: "Mail rechazado",
+      clase: "badge-danger",
+      ayuda: "El mail no llegó. Entrá a Editar y cambiá la dirección por una válida."
+    };
+  }
+  return {
+    texto: "Mail enviado",
+    clase: "badge-warning",
+    ayuda: "Ya se le mandaron las credenciales; todavía no ingresó por primera vez."
+  };
+}
+
+/** Dibuja la flechita del encabezado según cómo esté ordenado. */
+function pintarFlecha(encabezado, orden) {
+  if (!encabezado) return;
+  const flecha = encabezado.querySelector(".flecha-orden");
+  if (flecha) flecha.textContent = orden === "asc" ? "▲" : orden === "desc" ? "▼" : "";
+  encabezado.classList.toggle("ordenando", !!orden);
+}
+
+/** Orden de los estados cuando se ordena la tabla por esa columna. */
+const ORDEN_ESTADOS = ["Mail rechazado", "Mail enviado", "Activo", "Dado de baja"];
+
+/** Aplica el filtro y el orden elegidos sobre una lista de personas. */
+function filtrarPorEstado(lista, filtro, orden) {
+  let salida = lista;
+  if (filtro && filtro !== "todos") {
+    salida = salida.filter(p => estadoPersona(p).texto === filtro);
+  }
+  if (orden) {
+    const signo = orden === "asc" ? 1 : -1;
+    salida = [...salida].sort((a, b) =>
+      signo * (ORDEN_ESTADOS.indexOf(estadoPersona(a).texto) -
+               ORDEN_ESTADOS.indexOf(estadoPersona(b).texto)));
+  }
+  return salida;
+}
+
+function validarDni(dni) {
+  const valor = (dni || "").trim();
+  if (!valor) return "Ingresá el DNI";
+  if (/[.,\s]/.test(valor)) return "Ingresá el DNI sin puntos ni espacios";
+  if (!/^\d+$/.test(valor)) return "El DNI debe ser numérico";
+  if (valor.length < 7 || valor.length > 9) return "El DNI debe tener entre 7 y 9 dígitos";
+  return null;
+}
+
+/**
  * Marca en rojo las celdas con problemas y ajusta el botón de alta.
  * No bloquea por duplicados: esas filas se saltean al cargar y se informan
  * al final. Solo exige que estén asignadas las cuatro columnas.
@@ -1716,7 +1810,8 @@ function pintarValidacion() {
       if (indice[c.clave] === undefined) return;
       const vacio = !d[c.clave];
       const malMail = c.clave === "mail" && d.mail && !MAIL_VALIDO.test(d.mail);
-      const mal = vacio || malMail;
+      const malDni  = c.clave === "dni"  && d.dni  && validarDni(d.dni) !== null;
+      const mal = vacio || malMail || malDni;
 
       const celda = DOM.csvTbody.querySelector(
         `.csv-celda[data-fila="${i}"][data-col="${indice[c.clave]}"]`);
@@ -1821,6 +1916,8 @@ async function altaMasivaCsv() {
       fallados.push({ ...d, detalle: "faltan datos o el mail es inválido" });
       continue;
     }
+    const errorDniFila = validarDni(d.dni);
+    if (errorDniFila) { fallados.push({ ...d, detalle: errorDniFila.toLowerCase() }); continue; }
     if (mailsEnBase.has(mail) || dnisEnBase.has(d.dni)) {
       repetidos.push({ ...d, detalle: "ya estaba cargado" });
       continue;
@@ -1996,7 +2093,7 @@ async function cargarDatosSuperadmin() {
   const [empresasRes, adminsRes] = await Promise.all([
     db.from("empresas").select("id, nombre, cuit").eq("activa", true).order("nombre"),
     db.from("usuarios")
-      .select("id, nombre, apellido, usuario, dni, mail, activo, empresa_id, empresas(nombre, cuit)")
+      .select("id, nombre, apellido, usuario, dni, mail, activo, empresa_id, estado_mail, debe_cambiar_password, empresas(nombre, cuit)")
       .eq("rol", "admin")
       .order("apellido")
   ]);
@@ -2018,10 +2115,13 @@ async function cargarDatosSuperadmin() {
 }
 
 function renderAdmins() {
-  DOM.adminsEmptyState.style.display = state.admins.length ? "none" : "block";
+  const lista = filtrarPorEstado(state.admins, state.filtroEstadoAdmins, state.ordenEstadoAdmins);
+  pintarFlecha(DOM.ordenEstadoAdmins, state.ordenEstadoAdmins);
+
+  DOM.adminsEmptyState.style.display = lista.length ? "none" : "block";
   DOM.adminsTableBody.innerHTML = "";
 
-  state.admins.forEach(a => {
+  lista.forEach(a => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>
@@ -2036,15 +2136,21 @@ function renderAdmins() {
       <td>${escapeHtml(a.usuario)}</td>
       <td>${escapeHtml(a.empresas?.nombre || "—")}</td>
       <td>
-        <span class="status-badge ${a.activo ? "badge-normal" : "badge-danger"}">
-          ${a.activo ? "Activo" : "Dado de baja"}
+        <span class="status-badge ${estadoPersona(a).clase}"
+              ${estadoPersona(a).ayuda ? `title="${estadoPersona(a).ayuda}"` : ""}>
+          ${estadoPersona(a).texto}
         </span>
       </td>
       <td class="text-right">
-        <button class="btn-table-action" data-action="editar" data-id="${a.id}">Editar</button>
-        <button class="btn-table-action" data-action="baja" data-id="${a.id}">
-          ${a.activo ? "Dar de baja" : "Reactivar"}
-        </button>
+        <div class="acciones-fila">
+          <button class="btn-accion btn-accion-editar" data-action="editar" data-id="${a.id}">
+            Editar
+          </button>
+          <button class="btn-accion ${a.activo ? "btn-accion-baja" : "btn-accion-alta"}"
+                  data-action="baja" data-id="${a.id}">
+            ${a.activo ? "Dar de baja" : "Reactivar"}
+          </button>
+        </div>
       </td>`;
     tr.querySelector('[data-action="editar"]').addEventListener("click", () => editarAdmin(a.id));
     tr.querySelector('[data-action="baja"]').addEventListener("click", () => alternarBajaAdmin(a));
@@ -2151,6 +2257,9 @@ async function agregarAdminPendiente() {
     return;
   }
 
+  const errorDni = validarDni(dni);
+  if (errorDni) { showToast(errorDni, "toast-error"); return; }
+
   const repetido = await buscarRepetido(dni, mail);
   if (repetido) { showToast(repetido, "toast-error"); return; }
 
@@ -2203,6 +2312,9 @@ async function guardarAdmin(e) {
         showToast("Completá todos los campos del admin actual", "toast-error");
         return;
      }
+     const errorDniAdmin = validarDni(dni);
+     if (errorDniAdmin) { showToast(errorDniAdmin, "toast-error"); return; }
+
      const repetido = await buscarRepetido(dni, mail);
      if (repetido) { showToast(repetido, "toast-error"); return; }
      state.pendingAdmins.push({ nombre, apellido, dni, mail, empresa, cuit, id: Date.now() });
@@ -2294,6 +2406,9 @@ async function guardarEditAdmin(e) {
     return;
   }
 
+  const errorDniEdit = validarDni(dni);
+  if (errorDniEdit) { showToast(errorDniEdit, "toast-error"); return; }
+
   DOM.btnSubmitEditAdmin.disabled = true;
 
   const empresa = await resolverEmpresa(nombreEmpresa, cuit);
@@ -2331,10 +2446,13 @@ function renderChoferesEdit() {
     (lista.length === 1 ? "conductor" : "conductores") +
     (activos < lista.length ? ` · ${activos} activo${activos === 1 ? "" : "s"}` : "");
 
-  DOM.choferesEditEmptyState.style.display = lista.length ? "none" : "block";
+  const visibles = filtrarPorEstado(lista, state.filtroEstadoChoferes, state.ordenEstadoChoferes);
+  pintarFlecha(DOM.ordenEstadoChoferes, state.ordenEstadoChoferes);
+
+  DOM.choferesEditEmptyState.style.display = visibles.length ? "none" : "block";
   DOM.choferesEditTableBody.innerHTML = "";
 
-  lista.forEach(c => {
+  visibles.forEach(c => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>
@@ -2348,15 +2466,21 @@ function renderChoferesEdit() {
       </td>
       <td>${escapeHtml(c.usuario)}</td>
       <td>
-        <span class="status-badge ${c.activo ? "badge-normal" : "badge-danger"}">
-          ${c.activo ? "Activo" : "Dado de baja"}
+        <span class="status-badge ${estadoPersona(c).clase}"
+              ${estadoPersona(c).ayuda ? `title="${estadoPersona(c).ayuda}"` : ""}>
+          ${estadoPersona(c).texto}
         </span>
       </td>
       <td class="text-right">
-        <button class="btn-table-action" data-action="editar-chofer" data-id="${c.id}">Editar</button>
-        <button class="btn-table-action" data-action="baja-chofer" data-id="${c.id}">
-          ${c.activo ? "Dar de baja" : "Reactivar"}
-        </button>
+        <div class="acciones-fila">
+          <button class="btn-accion btn-accion-editar" data-action="editar-chofer" data-id="${c.id}">
+            Editar
+          </button>
+          <button class="btn-accion ${c.activo ? "btn-accion-baja" : "btn-accion-alta"}"
+                  data-action="baja-chofer" data-id="${c.id}">
+            ${c.activo ? "Dar de baja" : "Reactivar"}
+          </button>
+        </div>
       </td>`;
     tr.querySelector('[data-action="editar-chofer"]').addEventListener("click", () => editarChofer(c.id));
     tr.querySelector('[data-action="baja-chofer"]').addEventListener("click", () => alternarBajaChofer(c));
@@ -2408,6 +2532,9 @@ async function guardarEditChofer(e) {
     showToast("Completá todos los campos", "toast-error");
     return;
   }
+
+  const errorDniChofer = validarDni(dni);
+  if (errorDniChofer) { showToast(errorDniChofer, "toast-error"); return; }
 
   DOM.btnSubmitEditChofer.disabled = true;
 
@@ -2730,6 +2857,29 @@ function conectarEventos() {
   DOM.btnCancelEditChofer.addEventListener("click", cancelarEdicionChofer);
 
   DOM.cuentaForm.addEventListener("submit", actualizarCuenta);
+
+  // --- Filtro y orden por estado, en las dos tablas ---
+  // Cada clic en el encabezado alterna: ascendente, descendente, sin orden.
+  const siguienteOrden = (actual) =>
+    actual === null ? "asc" : actual === "asc" ? "desc" : null;
+
+  DOM.filtroEstadoAdmins.addEventListener("change", (e) => {
+    state.filtroEstadoAdmins = e.target.value;
+    renderAdmins();
+  });
+  DOM.ordenEstadoAdmins.addEventListener("click", () => {
+    state.ordenEstadoAdmins = siguienteOrden(state.ordenEstadoAdmins);
+    renderAdmins();
+  });
+
+  DOM.filtroEstadoChoferes.addEventListener("change", (e) => {
+    state.filtroEstadoChoferes = e.target.value;
+    renderChoferesEdit();
+  });
+  DOM.ordenEstadoChoferes.addEventListener("click", () => {
+    state.ordenEstadoChoferes = siguienteOrden(state.ordenEstadoChoferes);
+    renderChoferesEdit();
+  });
 
   window.addEventListener("resize", () => {
     if (state.currentAppView === "historial") renderHistorial();
