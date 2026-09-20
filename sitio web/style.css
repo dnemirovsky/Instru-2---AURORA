@@ -2262,6 +2262,7 @@ body {
   color: var(--text-secondary);
   margin-bottom: 18px;
   line-height: 1.45;
+  text-align: center;
 }
 
 .login-ok {
@@ -3295,14 +3296,11 @@ body {
 .kpi-card .status-badge .status-bullet { display: none; }
 /* Aviso sobre los mails: demora, correo no deseado y espera entre pedidos */
 .aviso-mail {
-  background: var(--warning-bg);
-  border: 1px solid var(--warning-border);
   color: var(--warning-text);
   font-size: 0.8rem;
-  line-height: 1.5;
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
+  line-height: 1.45;
   margin-bottom: 16px;
+  text-align: center;
 }
 
 /* =========================================================
