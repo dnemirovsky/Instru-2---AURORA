@@ -37,9 +37,7 @@ const state = {
   empresas: [],
   admins: [],
   filtroEstadoAdmins: "todos",
-  ordenEstadoAdmins: null,        // null | "asc" | "desc"
   filtroEstadoChoferes: "todos",
-  ordenEstadoChoferes: null,
   adminEnEdicion: null,
   choferEnEdicion: null,
   pendingAdmins: []
@@ -205,10 +203,10 @@ const DOM = {
   btnCancelEditAdmin: $("btnCancelEditAdmin"),
 
   adminsTableBody: $("adminsTableBody"),
-  filtroEstadoAdmins: $("filtroEstadoAdmins"),
-  ordenEstadoAdmins: $("ordenEstadoAdmins"),
-  filtroEstadoChoferes: $("filtroEstadoChoferes"),
-  ordenEstadoChoferes: $("ordenEstadoChoferes"),
+  btnEstadoAdmins: $("btnEstadoAdmins"),
+  menuEstadoAdmins: $("menuEstadoAdmins"),
+  btnEstadoChoferes: $("btnEstadoChoferes"),
+  menuEstadoChoferes: $("menuEstadoChoferes"),
   adminsEmptyState: $("adminsEmptyState"),
 
   editChoferFormContainer: $("editChoferFormContainer"),
@@ -1752,30 +1750,22 @@ function estadoPersona(p) {
   };
 }
 
-/** Dibuja la flechita del encabezado según cómo esté ordenado. */
-function pintarFlecha(encabezado, orden) {
-  if (!encabezado) return;
-  const flecha = encabezado.querySelector(".flecha-orden");
-  if (flecha) flecha.textContent = orden === "asc" ? "▲" : orden === "desc" ? "▼" : "";
-  encabezado.classList.toggle("ordenando", !!orden);
+/**
+ * Deja el encabezado mostrando si la columna tiene un filtro puesto, y marca
+ * la opción elegida dentro del menú. El triángulo es siempre el mismo: solo
+ * cambia de color cuando hay un filtro.
+ */
+function pintarEncabezado(boton, menu, filtro) {
+  if (!boton || !menu) return;
+  boton.classList.toggle("con-filtro", filtro !== "todos");
+  menu.querySelectorAll("[data-filtro]").forEach(b =>
+    b.classList.toggle("elegido", b.dataset.filtro === filtro));
 }
 
-/** Orden de los estados cuando se ordena la tabla por esa columna. */
-const ORDEN_ESTADOS = ["Mail rechazado", "Mail enviado", "Activo", "Dado de baja"];
-
-/** Aplica el filtro y el orden elegidos sobre una lista de personas. */
-function filtrarPorEstado(lista, filtro, orden) {
-  let salida = lista;
-  if (filtro && filtro !== "todos") {
-    salida = salida.filter(p => estadoPersona(p).texto === filtro);
-  }
-  if (orden) {
-    const signo = orden === "asc" ? 1 : -1;
-    salida = [...salida].sort((a, b) =>
-      signo * (ORDEN_ESTADOS.indexOf(estadoPersona(a).texto) -
-               ORDEN_ESTADOS.indexOf(estadoPersona(b).texto)));
-  }
-  return salida;
+/** Deja solo las personas cuyo estado coincide con el filtro elegido. */
+function filtrarPorEstado(lista, filtro) {
+  if (!filtro || filtro === "todos") return lista;
+  return lista.filter(p => estadoPersona(p).texto === filtro);
 }
 
 function validarDni(dni) {
@@ -2115,8 +2105,8 @@ async function cargarDatosSuperadmin() {
 }
 
 function renderAdmins() {
-  const lista = filtrarPorEstado(state.admins, state.filtroEstadoAdmins, state.ordenEstadoAdmins);
-  pintarFlecha(DOM.ordenEstadoAdmins, state.ordenEstadoAdmins);
+  const lista = filtrarPorEstado(state.admins, state.filtroEstadoAdmins);
+  pintarEncabezado(DOM.btnEstadoAdmins, DOM.menuEstadoAdmins, state.filtroEstadoAdmins);
 
   DOM.adminsEmptyState.style.display = lista.length ? "none" : "block";
   DOM.adminsTableBody.innerHTML = "";
@@ -2146,7 +2136,7 @@ function renderAdmins() {
           <button class="btn-accion btn-accion-editar" data-action="editar" data-id="${a.id}">
             Editar
           </button>
-          <button class="btn-accion ${a.activo ? "btn-accion-baja" : "btn-accion-alta"}"
+          <button class="btn-accion btn-accion-baja"
                   data-action="baja" data-id="${a.id}">
             ${a.activo ? "Dar de baja" : "Reactivar"}
           </button>
@@ -2446,8 +2436,8 @@ function renderChoferesEdit() {
     (lista.length === 1 ? "conductor" : "conductores") +
     (activos < lista.length ? ` · ${activos} activo${activos === 1 ? "" : "s"}` : "");
 
-  const visibles = filtrarPorEstado(lista, state.filtroEstadoChoferes, state.ordenEstadoChoferes);
-  pintarFlecha(DOM.ordenEstadoChoferes, state.ordenEstadoChoferes);
+  const visibles = filtrarPorEstado(lista, state.filtroEstadoChoferes);
+  pintarEncabezado(DOM.btnEstadoChoferes, DOM.menuEstadoChoferes, state.filtroEstadoChoferes);
 
   DOM.choferesEditEmptyState.style.display = visibles.length ? "none" : "block";
   DOM.choferesEditTableBody.innerHTML = "";
@@ -2476,7 +2466,7 @@ function renderChoferesEdit() {
           <button class="btn-accion btn-accion-editar" data-action="editar-chofer" data-id="${c.id}">
             Editar
           </button>
-          <button class="btn-accion ${c.activo ? "btn-accion-baja" : "btn-accion-alta"}"
+          <button class="btn-accion btn-accion-baja"
                   data-action="baja-chofer" data-id="${c.id}">
             ${c.activo ? "Dar de baja" : "Reactivar"}
           </button>
@@ -2858,28 +2848,57 @@ function conectarEventos() {
 
   DOM.cuentaForm.addEventListener("submit", actualizarCuenta);
 
-  // --- Filtro y orden por estado, en las dos tablas ---
-  // Cada clic en el encabezado alterna: ascendente, descendente, sin orden.
-  const siguienteOrden = (actual) =>
-    actual === null ? "asc" : actual === "asc" ? "desc" : null;
+  // --- El menú de la columna "Estado", en las dos tablas ---
+  const cerrarMenusColumna = () =>
+    document.querySelectorAll(".menu-columna").forEach(m => m.style.display = "none");
 
-  DOM.filtroEstadoAdmins.addEventListener("change", (e) => {
-    state.filtroEstadoAdmins = e.target.value;
-    renderAdmins();
-  });
-  DOM.ordenEstadoAdmins.addEventListener("click", () => {
-    state.ordenEstadoAdmins = siguienteOrden(state.ordenEstadoAdmins);
-    renderAdmins();
-  });
+  // Se abre desde el propio encabezado, como en una planilla.
+  function conectarMenuColumna(boton, menu, claveFiltro, render) {
+    boton.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const abierto = menu.style.display === "block";
+      cerrarMenusColumna();
+      if (abierto) return;
 
-  DOM.filtroEstadoChoferes.addEventListener("change", (e) => {
-    state.filtroEstadoChoferes = e.target.value;
-    renderChoferesEdit();
-  });
-  DOM.ordenEstadoChoferes.addEventListener("click", () => {
-    state.ordenEstadoChoferes = siguienteOrden(state.ordenEstadoChoferes);
-    renderChoferesEdit();
-  });
+      // El menú se ubica a mano respecto de la pantalla, no de la tabla: si
+      // dependiera de la tabla, el contenedor lo recortaría por abajo.
+      const r = boton.getBoundingClientRect();
+      menu.style.display = "block";
+      const alto = menu.offsetHeight;
+      const ancho = menu.offsetWidth;
+
+      // Si no entra abajo, se abre hacia arriba
+      const abreArriba = r.bottom + alto + 8 > window.innerHeight;
+      menu.style.top = abreArriba ? `${r.top - alto - 6}px` : `${r.bottom + 6}px`;
+      // Y si se pasa del borde derecho, se corre para adentro
+      menu.style.left = `${Math.min(r.left, window.innerWidth - ancho - 12)}px`;
+    });
+
+    menu.addEventListener("click", (e) => {
+      const opcion = e.target.closest("button");
+      if (!opcion) return;
+      e.stopPropagation();
+
+      if (opcion.dataset.filtro !== undefined) {
+        state[claveFiltro] = opcion.dataset.filtro;
+      }
+      cerrarMenusColumna();
+      render();
+    });
+  }
+
+  conectarMenuColumna(DOM.btnEstadoAdmins, DOM.menuEstadoAdmins,
+                      "filtroEstadoAdmins", renderAdmins);
+  conectarMenuColumna(DOM.btnEstadoChoferes, DOM.menuEstadoChoferes,
+                      "filtroEstadoChoferes", renderChoferesEdit);
+
+  // Un clic afuera, Escape, o mover la pantalla cierran el menú abierto.
+  // Lo último hace falta porque ahora el menú está anclado a la pantalla: si
+  // se desplaza la página, quedaría flotando lejos de su encabezado.
+  document.addEventListener("click", cerrarMenusColumna);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") cerrarMenusColumna(); });
+  window.addEventListener("scroll", cerrarMenusColumna, true);
+  window.addEventListener("resize", cerrarMenusColumna);
 
   window.addEventListener("resize", () => {
     if (state.currentAppView === "historial") renderHistorial();

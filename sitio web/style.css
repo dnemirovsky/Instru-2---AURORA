@@ -3316,44 +3316,6 @@ body {
    Tablas de administración: filtro, orden y acciones
    ========================================================= */
 
-/* Barra de filtro arriba de la tabla */
-.tabla-herramientas {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  margin-bottom: 0.85rem;
-}
-
-.tabla-herramientas label {
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-
-.select-chico {
-  width: auto;
-  min-width: 170px;
-  padding: 0.4rem 0.7rem;
-  font-size: 0.82rem;
-}
-
-/* Encabezado que se puede clickear para ordenar */
-.th-ordenable {
-  cursor: pointer;
-  user-select: none;
-  white-space: nowrap;
-  transition: color 0.15s ease;
-}
-
-.th-ordenable:hover { color: var(--text-primary); }
-
-.th-ordenable.ordenando { color: var(--primary-color); }
-
-.flecha-orden {
-  font-size: 0.65rem;
-  margin-left: 2px;
-}
-
 /* La baja no es un error: es un estado neutro */
 .badge-neutro {
   background-color: var(--bg-subtle);
@@ -3398,26 +3360,166 @@ body {
   color: var(--text-primary);
 }
 
+
+/* ---------- Menú de la columna "Estado" ----------
+   Se abre desde el encabezado, como en una planilla de cálculo. */
+.th-menu {
+  position: relative;
+  white-space: nowrap;
+}
+
+.th-boton {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s ease;
+}
+
+.th-boton:hover { color: var(--text-primary); }
+
+.th-boton.con-filtro { color: var(--primary-color); font-weight: 600; }
+
+/* Mismo tamaño siempre; solo cambia el color cuando hay filtro puesto */
+.th-flecha {
+  font-size: 0.62rem;
+  line-height: 1;
+  opacity: 0.75;
+}
+
+.th-boton.con-filtro .th-flecha { opacity: 1; }
+
+.menu-columna {
+  position: fixed;        /* anclado a la pantalla: el contenedor de la tabla
+                             tiene overflow y si no, lo recortaba */
+  z-index: 200;
+  min-width: 250px;
+  padding: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  text-align: left;
+  white-space: normal;
+}
+
+.menu-titulo {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 6px 10px 4px;
+}
+
+.menu-columna button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 400;
+  color: var(--text-secondary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu-columna button:hover { background: var(--bg-subtle); color: var(--text-primary); }
+
+/* La opción activa lleva un tilde al final */
+.menu-columna button.elegido {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.menu-columna button.elegido::after { content: "✓"; }
+
+.menu-sep {
+  height: 1px;
+  background: var(--border-color);
+  margin: 5px 4px;
+}
+
+/* ---------- Nada se mueve al tocar los botones ----------
+   "Dar de baja" y "Reactivar" tienen distinto largo, y las etiquetas de
+   estado también. Sin anchos mínimos, cada clic reacomodaba la tabla. */
+.btn-accion {
+  min-width: 104px;
+  justify-content: center;
+}
+
+.drivers-table .status-badge {
+  min-width: 118px;
+  justify-content: center;
+}
+
+/* Dar de baja y reactivar: el mismo azul noche translúcido */
 .btn-accion-baja {
-  background-color: var(--danger-bg);
-  color: var(--danger-text);
-  border: 1px solid var(--danger-border);
+  background-color: rgba(14, 17, 38, 0.07);
+  color: var(--noche);
+  border: 1px solid rgba(14, 17, 38, 0.18);
 }
 
 .btn-accion-baja:hover {
-  background-color: var(--danger-color);
-  border-color: var(--danger-color);
-  color: #ffffff;
+  background-color: rgba(14, 17, 38, 0.14);
+  border-color: rgba(14, 17, 38, 0.3);
 }
 
-.btn-accion-alta {
-  background-color: var(--normal-bg);
-  color: var(--normal-text);
-  border: 1px solid var(--normal-border);
+/* =========================================================
+   Anchos fijos en las tablas de administración
+   ---------------------------------------------------------
+   Las tablas HTML reparten el ancho según lo que hay adentro, así que al
+   filtrar cambiaban de tamaño las columnas y todo se corría de lugar.
+   Con anchos fijos, el contenido cambia pero la grilla se queda quieta.
+   ========================================================= */
+
+#viewAdminChoferesEdit .drivers-table,
+#viewSuperadminEdit .drivers-table {
+  table-layout: fixed;
 }
 
-.btn-accion-alta:hover {
-  background-color: var(--normal-color);
-  border-color: var(--normal-color);
-  color: #ffffff;
+/* Choferes: Chofer · Usuario · Estado · Acciones */
+#viewAdminChoferesEdit .drivers-table th:nth-child(1) { width: 42%; }
+#viewAdminChoferesEdit .drivers-table th:nth-child(2) { width: 20%; }
+#viewAdminChoferesEdit .drivers-table th:nth-child(3) { width: 18%; }
+#viewAdminChoferesEdit .drivers-table th:nth-child(4) { width: 20%; }
+
+/* Administradores: Administrador · Usuario · Empresa · Estado · Acciones */
+#viewSuperadminEdit .drivers-table th:nth-child(1) { width: 30%; }
+#viewSuperadminEdit .drivers-table th:nth-child(2) { width: 16%; }
+#viewSuperadminEdit .drivers-table th:nth-child(3) { width: 20%; }
+#viewSuperadminEdit .drivers-table th:nth-child(4) { width: 16%; }
+#viewSuperadminEdit .drivers-table th:nth-child(5) { width: 18%; }
+
+/* Con el ancho fijo, un mail largo se corta con puntos suspensivos en vez
+   de empujar la columna */
+#viewAdminChoferesEdit .drivers-table td,
+#viewSuperadminEdit .drivers-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#viewAdminChoferesEdit .table-driver-col div,
+#viewSuperadminEdit .table-driver-col div {
+  min-width: 0;          /* deja que el texto se recorte dentro de la celda */
+}
+
+#viewAdminChoferesEdit .table-driver-col strong,
+#viewSuperadminEdit .table-driver-col strong,
+#viewAdminChoferesEdit .table-driver-col div div,
+#viewSuperadminEdit .table-driver-col div div {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

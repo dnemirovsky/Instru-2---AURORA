@@ -55,8 +55,8 @@
       <form id="loginForm" class="login-form" novalidate>
         <div class="form-group">
           <label for="loginUser">Usuario</label>
-          <input type="text" id="loginUser" class="form-input" autocomplete="username"
-                 placeholder="Ej: mgomez" required />
+          <input type="text" id="loginUser" class="form-input" autocomplete="off"
+                 autocapitalize="none" spellcheck="false" required />
         </div>
         <div class="form-group">
           <label for="loginPass">Contraseña</label>
@@ -826,17 +826,6 @@
         </form>
       </div>
 
-      <div class="tabla-herramientas">
-        <label for="filtroEstadoAdmins">Filtrar por estado:</label>
-        <select id="filtroEstadoAdmins" class="form-select select-chico">
-          <option value="todos">Todos</option>
-          <option value="Activo">Activo</option>
-          <option value="Mail enviado">Mail enviado</option>
-          <option value="Mail rechazado">Mail rechazado</option>
-          <option value="Dado de baja">Dado de baja</option>
-        </select>
-      </div>
-
       <div class="drivers-table-container">
         <table class="drivers-table">
           <thead>
@@ -844,8 +833,18 @@
               <th>Administrador</th>
               <th>Usuario</th>
               <th>Empresa</th>
-              <th class="th-ordenable" id="ordenEstadoAdmins" title="Ordenar por estado">
-                Estado <span class="flecha-orden"></span>
+              <th class="th-menu">
+                <button type="button" class="th-boton" id="btnEstadoAdmins">
+                  Estado <span class="th-flecha">▼</span>
+                </button>
+                <div class="menu-columna" id="menuEstadoAdmins" style="display:none;">
+                  <div class="menu-titulo">Mostrar</div>
+                  <button type="button" data-filtro="todos">Todos</button>
+                  <button type="button" data-filtro="Activo">Activo</button>
+                  <button type="button" data-filtro="Mail enviado">Mail enviado</button>
+                  <button type="button" data-filtro="Mail rechazado">Mail rechazado</button>
+                  <button type="button" data-filtro="Dado de baja">Dado de baja</button>
+                </div>
               </th>
               <th class="text-right">Acciones</th>
             </tr>
@@ -915,25 +914,24 @@
         </form>
       </div>
 
-            <div class="tabla-herramientas">
-        <label for="filtroEstadoChoferes">Filtrar por estado:</label>
-        <select id="filtroEstadoChoferes" class="form-select select-chico">
-          <option value="todos">Todos</option>
-          <option value="Activo">Activo</option>
-          <option value="Mail enviado">Mail enviado</option>
-          <option value="Mail rechazado">Mail rechazado</option>
-          <option value="Dado de baja">Dado de baja</option>
-        </select>
-      </div>
-
-<div class="drivers-table-container">
+      <div class="drivers-table-container">
         <table class="drivers-table">
           <thead>
             <tr>
               <th>Chofer</th>
               <th>Usuario</th>
-              <th class="th-ordenable" id="ordenEstadoChoferes" title="Ordenar por estado">
-                Estado <span class="flecha-orden"></span>
+              <th class="th-menu">
+                <button type="button" class="th-boton" id="btnEstadoChoferes">
+                  Estado <span class="th-flecha">▼</span>
+                </button>
+                <div class="menu-columna" id="menuEstadoChoferes" style="display:none;">
+                  <div class="menu-titulo">Mostrar</div>
+                  <button type="button" data-filtro="todos">Todos</button>
+                  <button type="button" data-filtro="Activo">Activo</button>
+                  <button type="button" data-filtro="Mail enviado">Mail enviado</button>
+                  <button type="button" data-filtro="Mail rechazado">Mail rechazado</button>
+                  <button type="button" data-filtro="Dado de baja">Dado de baja</button>
+                </div>
               </th>
               <th class="text-right">Acciones</th>
             </tr>
