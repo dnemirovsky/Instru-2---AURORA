@@ -30,9 +30,8 @@ const state = {
   chartTab: "dia",
   chartTripId: null,
 
-  historyDriverFilter: "all",
-  historySeverityFilter: "all",
-  historySearchQuery: "",
+  historyBusqueda: "",      // texto libre: nombre, apellido o usuario
+  historyChoferId: null,    // si se eligió uno de los coincidentes, cuál
 
   empresas: [],
   admins: [],
@@ -106,11 +105,15 @@ const DOM = {
   eventsList: $("eventsList"),
   eventsCount: $("eventsCount"),
 
-  historyDriverSelect: $("historyDriverSelect"),
-  historySeveritySelect: $("historySeveritySelect"),
   historySearchInput: $("historySearchInput"),
+  historyClearBtn: $("historyClearBtn"),
+  historyResultado: $("historyResultado"),
+  historyCoincidencias: $("historyCoincidencias"),
   historyTableBody: $("historyTableBody"),
   historyEmptyState: $("historyEmptyState"),
+  historyResultados: $("historyResultados"),
+  historyEmptyTitulo: $("historyEmptyTitulo"),
+  historyEmptyTexto: $("historyEmptyTexto"),
   hkpiTotal: $("hkpiTotal"),
   hkpiNivel1: $("hkpiNivel1"),
   hkpiNivel2: $("hkpiNivel2"),
@@ -955,14 +958,73 @@ function renderFeed() {
 // ============================================================================
 // 7. HISTORIAL
 // ============================================================================
+/**
+ * Devuelve los choferes que coinciden con lo que se escribió en el buscador,
+ * o null si el campo está vacío (que significa "toda la flota").
+ * Busca en nombre, apellido, nombre completo y nombre de usuario.
+ */
+function choferesBuscados() {
+  const q = state.historyBusqueda.trim().toLowerCase();
+  if (!q) return null;
+  return state.choferes.filter(c =>
+    (c.nombreCompleto || "").toLowerCase().includes(q) ||
+    (c.nombre || "").toLowerCase().includes(q) ||
+    (c.apellido || "").toLowerCase().includes(q) ||
+    (c.usuario || "").toLowerCase().includes(q)
+  );
+}
+
 function renderHistorial() {
-  // Selector de conductores
-  if (DOM.historyDriverSelect.options.length <= 1) {
-    state.choferes.forEach(c => {
-      const opt = document.createElement("option");
-      opt.value = c.id;
-      opt.textContent = c.nombreCompleto;
-      DOM.historyDriverSelect.appendChild(opt);
+  const coincidencias = choferesBuscados();
+  const elegido = state.historyChoferId
+    ? state.choferes.find(c => c.id === state.historyChoferId)
+    : null;
+
+  // A quién se le muestran los eventos:
+  //   · sin búsqueda            -> toda la flota
+  //   · una sola coincidencia   -> esa persona
+  //   · uno elegido de la lista -> esa persona
+  //   · varias sin elegir       -> nadie todavía: primero hay que elegir
+  // El último caso es a propósito: un historial combinado de dos personas no
+  // le sirve a nadie, y los totales de arriba sumarían a ambas.
+  const hayQueElegir = !elegido && coincidencias && coincidencias.length > 1;
+
+  const mostrados = elegido ? [elegido] : (hayQueElegir ? [] : coincidencias);
+  const idsBuscados = mostrados ? new Set(mostrados.map(c => c.id)) : null;
+
+  DOM.historyClearBtn.style.display = state.historyBusqueda ? "block" : "none";
+  DOM.historyCoincidencias.innerHTML = "";
+  DOM.historyResultado.className = "busqueda-resultado";
+
+  if (!coincidencias) {
+    DOM.historyResultado.textContent = "";
+  } else if (coincidencias.length === 0) {
+    DOM.historyResultado.textContent = "Ningún conductor coincide con esa búsqueda";
+    DOM.historyResultado.className = "busqueda-resultado sin-resultados";
+  } else if (elegido) {
+    DOM.historyResultado.textContent = `Mostrando el historial de ${elegido.nombreCompleto}`;
+  } else if (coincidencias.length === 1) {
+    DOM.historyResultado.textContent = `Mostrando el historial de ${coincidencias[0].nombreCompleto}`;
+  } else {
+    DOM.historyResultado.textContent =
+      `${coincidencias.length} conductores coinciden.`;
+  }
+
+  // Con más de una coincidencia se listan todas para poder elegir. La elegida
+  // queda resaltada; tocando otra se cambia de persona, y tocando la misma se
+  // deselecciona y vuelve a ocultarse el historial.
+  if (coincidencias && coincidencias.length > 1) {
+    coincidencias.forEach(c => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip-coincidencia" + (elegido && elegido.id === c.id ? " elegido" : "");
+      chip.innerHTML = `${escapeHtml(c.nombreCompleto)} <span>${escapeHtml(c.usuario)}</span>`;
+      chip.addEventListener("click", () => {
+        // Tocar la pastilla ya elegida la deselecciona y vuelve a pedir elegir
+        state.historyChoferId = (elegido && elegido.id === c.id) ? null : c.id;
+        renderHistorial();
+      });
+      DOM.historyCoincidencias.appendChild(chip);
     });
   }
 
@@ -971,7 +1033,6 @@ function renderHistorial() {
   const nombrePorChofer = {};
   state.usuarios.forEach(u => nombrePorChofer[u.id] = `${u.nombre} ${u.apellido}`);
 
-  const q = state.historySearchQuery.toLowerCase();
   const filas = state.eventos
     .map(ev => {
       const viaje = porViaje[ev.viaje_id];
@@ -982,36 +1043,34 @@ function renderHistorial() {
         chofer: viaje ? nombrePorChofer[viaje.chofer_id] : "—"
       };
     })
-    .filter(f => {
-      const okChofer = state.historyDriverFilter === "all" || f.choferId === state.historyDriverFilter;
-      const okNivel = state.historySeverityFilter === "all" || String(f.nivel) === state.historySeverityFilter;
-      const okTexto = !q ||
-        (f.chofer || "").toLowerCase().includes(q) ||
-        nombreTipo(f.tipo).toLowerCase().includes(q) ||
-        tramo(f.viaje).toLowerCase().includes(q);
-      return okChofer && okNivel && okTexto;
-    });
+    .filter(f => !idsBuscados || idsBuscados.has(f.choferId));
 
   DOM.hkpiTotal.textContent = filas.length;
   DOM.hkpiNivel1.textContent = filas.filter(f => f.nivel === 1).length;
   DOM.hkpiNivel2.textContent = filas.filter(f => f.nivel === 2).length;
-  // Si hay un conductor elegido, estos dos numeros son de el; si no, de toda
-  // la flota.
-  const choferElegido = state.historyDriverFilter === "all"
-    ? null
-    : state.choferes.find(c => c.id === state.historyDriverFilter);
+  // Los viajes y las horas acompañan a lo que se buscó: si el campo está
+  // vacío son de toda la flota, y si no, solo de los que coinciden.
+  const viajesMostrados = idsBuscados
+    ? state.viajes.filter(v => idsBuscados.has(v.chofer_id))
+    : state.viajes;
 
-  DOM.hkpiViajes.textContent = choferElegido
-    ? choferElegido.viajes.length
-    : state.viajes.length;
-
+  DOM.hkpiViajes.textContent = viajesMostrados.length;
   DOM.hkpiHoras.textContent = formatoDuracion(
-    choferElegido
-      ? choferElegido.horasTotales
-      : state.viajes.reduce((acc, v) => acc + duracionHoras(v), 0)
-  );
+    viajesMostrados.reduce((acc, v) => acc + duracionHoras(v), 0));
 
-  DOM.historyEmptyState.style.display = filas.length ? "none" : "block";
+  // Mientras haya que elegir, no se muestra nada del historial: ni los
+  // números, ni los gráficos, ni la tabla.
+  DOM.historyResultados.style.display = hayQueElegir ? "none" : "";
+
+  DOM.historyEmptyState.style.display = (hayQueElegir || !filas.length) ? "block" : "none";
+  if (hayQueElegir) {
+    DOM.historyEmptyTitulo.textContent = "Elegí un conductor";
+    DOM.historyEmptyTexto.textContent =
+      "Hay varios que coinciden con esa búsqueda. Tocá uno de la lista de arriba para ver su historial.";
+  } else {
+    DOM.historyEmptyTitulo.textContent = "No se encontraron registros";
+    DOM.historyEmptyTexto.textContent = "No hay eventos que coincidan con la búsqueda.";
+  }
   DOM.historyTableBody.innerHTML = "";
 
   filas.slice(0, 200).forEach(f => {
@@ -1156,9 +1215,14 @@ function armarSelectorDeViajes() {
   const nombrePorChofer = {};
   state.usuarios.forEach(u => nombrePorChofer[u.id] = `${u.nombre} ${u.apellido}`);
 
-  const viajes = state.viajes.filter(v =>
-    state.historyDriverFilter === "all" || v.chofer_id === state.historyDriverFilter
-  );
+  const coincidencias = choferesBuscados();
+  const elegido = state.historyChoferId
+    ? state.choferes.find(c => c.id === state.historyChoferId)
+    : null;
+  const hayQueElegir = !elegido && coincidencias && coincidencias.length > 1;
+  const mostrados = elegido ? [elegido] : (hayQueElegir ? [] : coincidencias);
+  const idsBuscados = mostrados ? new Set(mostrados.map(c => c.id)) : null;
+  const viajes = state.viajes.filter(v => !idsBuscados || idsBuscados.has(v.chofer_id));
 
   // Si el viaje elegido ya no esta en la lista, se toma el mas reciente.
   if (!viajes.some(v => v.id === state.chartTripId)) {
@@ -1168,9 +1232,7 @@ function armarSelectorDeViajes() {
   DOM.chartTripSelect.innerHTML = viajes.length
     ? viajes.map(v => {
         const etiqueta = `${formatoFechaHora(v.inicio)} · ${tramo(v)}` +
-          (state.historyDriverFilter === "all"
-            ? ` · ${nombrePorChofer[v.chofer_id] || ""}`
-            : "") +
+          ` · ${nombrePorChofer[v.chofer_id] || ""}` +
           (v.estado === "en_curso" ? " · en curso" : "");
         return `<option value="${v.id}">${escapeHtml(etiqueta)}</option>`;
       }).join("")
@@ -2803,16 +2865,15 @@ function conectarEventos() {
     renderDrivers();
   });
 
-  DOM.historyDriverSelect.addEventListener("change", (e) => {
-    state.historyDriverFilter = e.target.value;
-    renderHistorial();
-  });
-  DOM.historySeveritySelect.addEventListener("change", (e) => {
-    state.historySeverityFilter = e.target.value;
+  DOM.historyClearBtn.addEventListener("click", () => {
+    DOM.historySearchInput.value = "";
+    state.historyBusqueda = "";
+    state.historyChoferId = null;
     renderHistorial();
   });
   DOM.historySearchInput.addEventListener("input", (e) => {
-    state.historySearchQuery = e.target.value;
+    state.historyBusqueda = e.target.value;
+    state.historyChoferId = null;   // cambió la búsqueda: se deshace la elección
     renderHistorial();
   });
 

@@ -3514,3 +3514,57 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Aclaración debajo del buscador del historial */
+.busqueda-resultado {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+  min-height: 1.1em;     /* reserva el lugar: no salta la pantalla al escribir */
+}
+
+.busqueda-resultado.sin-resultados { color: var(--danger-color); }
+
+/* Lista de conductores que coinciden con la búsqueda */
+.coincidencias {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 9px;
+}
+
+.chip-coincidencia {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 0.35rem 0.75rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.chip-coincidencia span {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.chip-coincidencia:hover {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+/* El elegido queda marcado; tocarlo de nuevo vuelve a mostrarlos a todos */
+.chip-coincidencia.elegido {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.chip-coincidencia.elegido span { color: rgba(255, 255, 255, 0.8); }

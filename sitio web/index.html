@@ -346,39 +346,30 @@
     <div id="viewHistorial" class="app-view" style="display: none;">
       <div class="view-header">
         <div class="view-header-title">
-          <h2>Historial de eventos de somnolencia</h2>
+          <h2>Historial</h2>
         </div>
       </div>
 
       <div class="history-controls-bar">
-        <div class="history-filter-item">
-          <label for="historyDriverSelect">Filtrar por conductor:</label>
-          <select id="historyDriverSelect" class="form-select">
-            <option value="all">Todos los conductores</option>
-          </select>
-        </div>
-
-        <div class="history-filter-item">
-          <label for="historySeveritySelect">Nivel:</label>
-          <select id="historySeveritySelect" class="form-select">
-            <option value="all">Todos los niveles</option>
-            <option value="2">Solo nivel 2 (alerta)</option>
-            <option value="1">Solo nivel 1 (precaución)</option>
-          </select>
-        </div>
-
         <div class="history-filter-item history-search-item">
-          <label for="historySearchInput">Buscar en el registro:</label>
+          <label for="historySearchInput">Buscar conductor:</label>
           <div class="search-box">
             <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
-            <input type="text" id="historySearchInput" placeholder="Conductor, tipo de evento o recorrido..." />
+            <input type="text" id="historySearchInput" autocomplete="off"
+                   placeholder="Nombre, apellido o usuario. Vacío: toda la flota" />
+            <button id="historyClearBtn" class="clear-btn" title="Limpiar búsqueda" style="display:none;">&times;</button>
           </div>
+          <span class="busqueda-resultado" id="historyResultado"></span>
+          <div class="coincidencias" id="historyCoincidencias"></div>
         </div>
       </div>
 
+      <!-- Todo el contenido del historial vive acá adentro: así se puede
+           ocultar de una sola vez cuando hay que elegir un conductor. -->
+      <div id="historyResultados">
       <div class="history-kpis-grid">
         <div class="history-kpi-card">
           <span class="hkpi-title">Eventos totales</span>
@@ -488,11 +479,12 @@
           <tbody id="historyTableBody"></tbody>
         </table>
       </div>
+      </div>
 
       <div id="historyEmptyState" class="empty-state" style="display: none;">
         <div class="empty-icon">📁</div>
-        <h3>No se encontraron registros</h3>
-        <p>No hay eventos que coincidan con los filtros seleccionados.</p>
+        <h3 id="historyEmptyTitulo">No se encontraron registros</h3>
+        <p id="historyEmptyTexto">No hay eventos que coincidan con la búsqueda.</p>
       </div>
     </div>
 
