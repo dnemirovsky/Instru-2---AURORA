@@ -340,7 +340,16 @@ function mostrarErrorLogin(texto) {
 /** Se ejecuta al cargar la página y después de un login exitoso. */
 async function entrarAlPanel() {
   const { data: { session } } = await db.auth.getSession();
-  if (!session) return mostrarLogin();
+  if (!session) {
+    mostrarLogin();
+    // Si venimos de una expulsión (ver expulsar()), se explica por qué.
+    const motivo = sessionStorage.getItem("aurora_motivo_salida");
+    if (motivo) {
+      sessionStorage.removeItem("aurora_motivo_salida");
+      mostrarErrorLogin(motivo);
+    }
+    return;
+  }
 
   // Traemos la ficha del usuario para saber si es admin.
   const { data: perfil, error } = await db
@@ -359,16 +368,10 @@ async function entrarAlPanel() {
   // ¿La cuenta sigue habilitada? Lo decide la base: el navegador no puede
   // ver si el administrador de la empresa fue dado de baja.
   const { data: estado } = await db.rpc("cuenta_habilitada");
-  const motivos = {
-    usuario_inactivo:  "Tu cuenta se encuentra desactivada. Comunicate con tu administrador.",
-    empresa_inactiva:  "La cuenta de tu empresa se encuentra desactivada.",
-    empresa_sin_admin: "La cuenta de tu empresa se encuentra desactivada.",
-    sin_ficha:         "El usuario no tiene ficha cargada en el sistema."
-  };
   if (estado && estado !== "activa") {
     await db.auth.signOut();
     mostrarLogin();
-    mostrarErrorLogin(motivos[estado] || "No podés ingresar en este momento.");
+    mostrarErrorLogin(MOTIVOS_BLOQUEO[estado] || "No podés ingresar en este momento.");
     return;
   }
 
@@ -402,6 +405,9 @@ async function entrarAlPanel() {
     await cargarDatos();
     escucharCambios();
   }
+
+  // Desde acá, se revisa cada tanto que la cuenta siga habilitada.
+  vigilarCuenta();
 
   // Si entró con una contraseña temporal, no puede usar el panel hasta cambiarla.
   if (perfil.debe_cambiar_password) forzarCambioPassword();
@@ -511,7 +517,103 @@ async function pedirPasswordNueva(e) {
 }
 
 async function cerrarSesion() {
+  dejarDeVigilarCuenta();
   dejarDeEscuchar();
+  await db.auth.signOut();
+  location.reload();
+}
+
+// ============================================================================
+// 3.a-bis CUENTA DADA DE BAJA CON LA SESIÓN ABIERTA
+// ============================================================================
+// Si el superadmin da de baja a un administrador (o se desactiva su empresa)
+// mientras este tiene el panel abierto, hay que sacarlo en el momento.
+//
+// Mismo criterio que la app de los choferes:
+//   · se le pregunta a la base con cuenta_habilitada(), que es la que sabe;
+//   · si la consulta falla (sin conexión), NO se saca a nadie: sin conexión
+//     no se puede saber, y un corte de red no es una baja.
+//
+// Se revisa de tres maneras, para que la expulsión llegue rápido:
+//   1. al instante, si Supabase avisa que cambió la propia ficha;
+//   2. cada 30 segundos, como respaldo;
+//   3. cada vez que la persona vuelve a la pestaña.
+
+const MOTIVOS_BLOQUEO = {
+  usuario_inactivo:  "Tu cuenta se encuentra desactivada. Comunicate con tu administrador.",
+  empresa_inactiva:  "La cuenta de tu empresa se encuentra desactivada.",
+  empresa_sin_admin: "La cuenta de tu empresa se encuentra desactivada.",
+  sin_ficha:         "El usuario no tiene ficha cargada en el sistema."
+};
+
+const REVISION_CUENTA_MS = 30000;
+
+let vigilanciaCuenta = null;
+let canalCuenta = null;
+let revisandoCuenta = false;
+
+async function revisarCuenta() {
+  if (!state.perfil || revisandoCuenta) return;
+  revisandoCuenta = true;
+  try {
+    const { data: estado, error } = await db.rpc("cuenta_habilitada");
+    if (error || !estado) return;           // sin respuesta: no se decide nada
+    if (estado !== "activa") {
+      await expulsar(MOTIVOS_BLOQUEO[estado] || "Tu sesión se cerró. Volvé a ingresar.");
+    }
+  } finally {
+    revisandoCuenta = false;
+  }
+}
+
+function alVolverALaPestana() {
+  if (document.visibilityState === "visible") revisarCuenta();
+}
+
+function vigilarCuenta() {
+  if (vigilanciaCuenta) return;
+
+  vigilanciaCuenta = setInterval(() => {
+    if (document.visibilityState === "visible") revisarCuenta();
+  }, REVISION_CUENTA_MS);
+
+  document.addEventListener("visibilitychange", alVolverALaPestana);
+  window.addEventListener("focus", revisarCuenta);
+
+  // Aviso inmediato cuando cambia la propia ficha. Necesita que la tabla
+  // usuarios esté habilitada en Realtime; si no lo está, simplemente nunca
+  // llega el aviso y queda el respaldo de cada 30 segundos.
+  canalCuenta = db
+    .channel("mi-cuenta")
+    .on("postgres_changes",
+        { event: "UPDATE", schema: "public", table: "usuarios", filter: `id=eq.${state.perfil.id}` },
+        revisarCuenta)
+    .subscribe();
+}
+
+function dejarDeVigilarCuenta() {
+  if (vigilanciaCuenta) {
+    clearInterval(vigilanciaCuenta);
+    vigilanciaCuenta = null;
+  }
+  document.removeEventListener("visibilitychange", alVolverALaPestana);
+  window.removeEventListener("focus", revisarCuenta);
+  if (canalCuenta) {
+    db.removeChannel(canalCuenta);
+    canalCuenta = null;
+  }
+}
+
+/**
+ * Cierra la sesión y vuelve al login explicando el motivo.
+ * Recarga la página para no dejar en memoria datos de la empresa; el motivo
+ * sobrevive a la recarga guardado en sessionStorage, y lo muestra
+ * entrarAlPanel() al volver a arrancar.
+ */
+async function expulsar(motivo) {
+  dejarDeVigilarCuenta();
+  dejarDeEscuchar();
+  try { sessionStorage.setItem("aurora_motivo_salida", motivo); } catch (_) {}
   await db.auth.signOut();
   location.reload();
 }
