@@ -3479,18 +3479,65 @@ body {
   table-layout: fixed;
 }
 
+/* Reparto de columnas.
+   Los porcentajes reparten el espacio de forma pareja en pantallas anchas
+   (así no queda todo el sobrante en una sola columna). El ancho mínimo de
+   la tabla garantiza que, en pantallas angostas, ningún porcentaje quede
+   más chico que lo que necesita su contenido — en vez de apretarse, aparece
+   la barra de desplazamiento del contenedor.
+   Cuentas: la columna Acciones necesita ~246px (dos botones de 104px, el
+   espacio entre ellos y el relleno de la celda) y Estado ~142px. */
+
 /* Choferes: Chofer · Usuario · Estado · Acciones */
-#viewAdminChoferesEdit .drivers-table th:nth-child(1) { width: 42%; }
-#viewAdminChoferesEdit .drivers-table th:nth-child(2) { width: 20%; }
-#viewAdminChoferesEdit .drivers-table th:nth-child(3) { width: 18%; }
-#viewAdminChoferesEdit .drivers-table th:nth-child(4) { width: 20%; }
+#viewAdminChoferesEdit .drivers-table { min-width: 900px; }
+#viewAdminChoferesEdit .drivers-table th:nth-child(1) { width: 34%; }
+#viewAdminChoferesEdit .drivers-table th:nth-child(2) { width: 18%; }
+#viewAdminChoferesEdit .drivers-table th:nth-child(3) { width: 20%; }
+#viewAdminChoferesEdit .drivers-table th:nth-child(4) { width: 28%; }
 
 /* Administradores: Administrador · Usuario · Empresa · Estado · Acciones */
-#viewSuperadminEdit .drivers-table th:nth-child(1) { width: 30%; }
-#viewSuperadminEdit .drivers-table th:nth-child(2) { width: 16%; }
-#viewSuperadminEdit .drivers-table th:nth-child(3) { width: 20%; }
+#viewSuperadminEdit .drivers-table { min-width: 1040px; }
+#viewSuperadminEdit .drivers-table th:nth-child(1) { width: 27%; }
+#viewSuperadminEdit .drivers-table th:nth-child(2) { width: 15%; }
+#viewSuperadminEdit .drivers-table th:nth-child(3) { width: 18%; }
 #viewSuperadminEdit .drivers-table th:nth-child(4) { width: 16%; }
-#viewSuperadminEdit .drivers-table th:nth-child(5) { width: 18%; }
+#viewSuperadminEdit .drivers-table th:nth-child(5) { width: 24%; }
+
+/* ---------- Acciones ----------
+   Los botones van pegados al borde derecho de la tabla. El título no: va
+   centrado exactamente sobre el par de botones. Para eso, el texto vive en
+   un bloque del mismo ancho que el grupo de botones (dos de 104px más los
+   0.85rem que los separan), alineado a la derecha igual que ellos. */
+#viewAdminChoferesEdit .drivers-table th:last-child,
+#viewAdminChoferesEdit .drivers-table td:last-child,
+#viewSuperadminEdit .drivers-table th:last-child,
+#viewSuperadminEdit .drivers-table td:last-child {
+  text-align: right;
+}
+
+.th-acciones span {
+  display: inline-block;
+  width: calc(2 * 104px + 0.85rem);
+  text-align: center;
+}
+
+/* Ancho exacto, no mínimo: si un botón pudiera crecer, el título dejaría de
+   quedar centrado sobre ellos. Con el relleno lateral en 0.55rem, el texto
+   más largo ("Dar de baja") entra holgado en 104px. */
+.btn-accion {
+  width: 104px;
+  padding-left: 0.55rem;
+  padding-right: 0.55rem;
+}
+
+/* ---------- Estado ----------
+   El título y las pastillas, centrados en la columna. */
+#viewAdminChoferesEdit .drivers-table th:nth-child(3),
+#viewAdminChoferesEdit .drivers-table td:nth-child(3),
+#viewSuperadminEdit .drivers-table th:nth-child(4),
+#viewSuperadminEdit .drivers-table td:nth-child(4) {
+  text-align: center;
+}
 
 /* Con el ancho fijo, un mail largo se corta con puntos suspensivos en vez
    de empujar la columna */
