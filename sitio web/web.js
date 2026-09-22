@@ -2243,6 +2243,29 @@ function conectarEventosCsv() {
 // ============================================================================
 // 9b. SUPERADMIN — gestión de administradores
 // ============================================================================
+/**
+ * Si lo que hay escrito en el campo de empresa coincide (sin importar
+ * mayúsculas) con una empresa que ya existe, completa el CUIT con el suyo
+ * y bloquea el campo — el CUIT de una empresa no lo redefine cada admin
+ * que se da de alta. Si no coincide con ninguna, libera el campo para que
+ * lo carguen a mano: es una empresa nueva.
+ */
+function autocompletarCuit(inputEmpresa, inputCuit) {
+  const nombre = inputEmpresa.value.trim().toLowerCase();
+  const empresa = state.empresas.find(e => e.nombre.trim().toLowerCase() === nombre);
+
+  if (empresa) {
+    inputCuit.value = empresa.cuit || "";
+    inputCuit.readOnly = true;
+    inputCuit.classList.add("form-input-bloqueado");
+    inputCuit.title = "Esta empresa ya existe: el CUIT no se puede cambiar acá.";
+  } else {
+    inputCuit.readOnly = false;
+    inputCuit.classList.remove("form-input-bloqueado");
+    inputCuit.title = "";
+  }
+}
+
 async function cargarDatosSuperadmin() {
   const [empresasRes, adminsRes] = await Promise.all([
     db.from("empresas").select("id, nombre, cuit").eq("activa", true).order("nombre"),
@@ -2840,6 +2863,11 @@ function cambiarVista(vista) {
 // 11. LISTENERS
 // ============================================================================
 function conectarEventos() {
+  DOM.adminEmpresa.addEventListener("input", () =>
+    autocompletarCuit(DOM.adminEmpresa, DOM.adminCuit));
+  DOM.editAdminEmpresa.addEventListener("input", () =>
+    autocompletarCuit(DOM.editAdminEmpresa, DOM.editAdminCuit));
+
   DOM.loginForm.addEventListener("submit", iniciarSesion);
   DOM.linkOlvide.addEventListener("click", () => mostrarRecuperar(true));
   DOM.linkVolverLogin.addEventListener("click", () => mostrarRecuperar(false));

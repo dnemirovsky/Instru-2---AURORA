@@ -3568,3 +3568,9 @@ body {
 }
 
 .chip-coincidencia.elegido span { color: rgba(255, 255, 255, 0.8); }
+/* Campo de CUIT bloqueado: la empresa ya existe, el dato no se redefine acá */
+.form-input-bloqueado {
+  background-color: var(--bg-subtle);
+  color: var(--text-secondary);
+  cursor: not-allowed;
+}
