@@ -690,16 +690,34 @@ function dejarDeEscuchar() {
 // ============================================================================
 // 4. CARGA DE DATOS
 // ============================================================================
+const COLUMNAS_VIAJE = "id, chofer_id, inicio, fin, estado, origen, destino";
+
+/**
+ * Trae los viajes con el "latido" de la app (ultimo_contacto y
+ * vincha_conectada). Si la base todavía no tiene esas columnas (no se corrió
+ * el SQL), los trae como antes, para que el panel no deje de funcionar.
+ */
+async function traerViajes() {
+  const consulta = (columnas) => db.from("viajes")
+    .select(columnas)
+    .order("inicio", { ascending: false })
+    .limit(500);
+
+  const res = await consulta(COLUMNAS_VIAJE + ", ultimo_contacto, vincha_conectada");
+  if (res.error && res.error.code === "42703") {   // columna inexistente
+    console.warn("Faltan las columnas de conexión en viajes: correr el SQL del latido.");
+    return consulta(COLUMNAS_VIAJE);
+  }
+  return res;
+}
+
 async function cargarDatos() {
   const [usuariosRes, viajesRes, eventosRes] = await Promise.all([
     db.from("usuarios")
       .select("id, rol, nombre, apellido, usuario, dni, mail, activo, empresa_id, estado_mail, debe_cambiar_password")
       .eq("rol", "chofer")
       .order("apellido"),
-    db.from("viajes")
-      .select("id, chofer_id, inicio, fin, estado, origen, destino")
-      .order("inicio", { ascending: false })
-      .limit(500),
+    traerViajes(),
     db.from("eventos")
       .select("id, viaje_id, tipo, nivel, ocurrido_en, valor")
       .order("ocurrido_en", { ascending: false })
@@ -785,6 +803,55 @@ function formatoFechaHora(iso) {
 
 function formatoHora(iso) {
   return new Date(iso).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+}
+
+/**
+ * Estado de la conexión del viaje en curso.
+ * Mientras hay un viaje en curso, la app manda un "latido" cada minuto
+ * (ultimo_contacto) diciendo además si la vincha está conectada. Si el latido
+ * deja de llegar, el teléfono se quedó sin internet o la app se cerró: los
+ * eventos de ese rato van a llegar cuando vuelva la señal (si la app sigue
+ * registrando), así que "sin eventos" no significa "sin somnolencia".
+ * Devuelve null si no hay viaje en curso o si la base no tiene las columnas.
+ */
+const MINUTOS_SIN_SENAL = 3;
+
+function estadoConexion(viaje) {
+  if (!viaje || viaje.estado !== "en_curso") return null;
+  if (!("ultimo_contacto" in viaje)) return null;
+
+  // Si todavía no llegó ningún latido, se cuenta desde que arrancó el viaje.
+  const referencia = viaje.ultimo_contacto || viaje.inicio;
+  const minutos = (Date.now() - new Date(referencia)) / 60000;
+
+  if (minutos > MINUTOS_SIN_SENAL) {
+    return {
+      tipo: "sin_senal",
+      corto: "Sin señal",
+      texto: `Sin señal del teléfono desde las ${formatoHora(referencia)}`,
+      ayuda: "El teléfono no tiene internet o la app está cerrada. " +
+             "Los eventos de este rato pueden llegar cuando vuelva la señal.",
+      clase: "text-danger"
+    };
+  }
+  if (viaje.vincha_conectada === false) {
+    return {
+      tipo: "sin_vincha",
+      corto: "Vincha desconectada",
+      texto: "Vincha desconectada",
+      ayuda: "El teléfono tiene señal pero no recibe datos de la vincha: " +
+             "no se están detectando parpadeos.",
+      clase: "text-warning"
+    };
+  }
+  if (viaje.vincha_conectada === true) {
+    return {
+      tipo: "ok", corto: "Conectado", texto: "Teléfono y vincha conectados",
+      ayuda: "", clase: ""
+    };
+  }
+  // Viaje recién empezado, sin latido todavía
+  return { tipo: "esperando", corto: "Esperando datos", texto: "Esperando datos del teléfono", ayuda: "", clase: "" };
 }
 
 function nombreTipo(tipo) {
@@ -965,6 +1032,7 @@ function renderGrid(lista) {
           <span class="meta-key">Duración:</span>
           <span class="meta-val">${c.viajeRef ? formatoDuracion(duracionHoras(c.viajeRef)) : "—"}</span>
         </div>
+        ${filaConexion(c.viajeActual)}
       </div>
 
       <div class="fatigue-section">
@@ -1011,6 +1079,21 @@ function renderTable(lista) {
     tr.querySelector(".btn-table-action").addEventListener("click", () => abrirModal(c.id));
     DOM.driversTableBody.appendChild(tr);
   });
+}
+
+/**
+ * Fila "Conexión" de la tarjeta del conductor (vista de tarjetas del panel).
+ * Es el único lugar donde se muestra: es lo que el admin tiene a la vista.
+ * Al pasar el mouse explica qué significa.
+ */
+function filaConexion(viaje) {
+  const con = estadoConexion(viaje);
+  if (!con) return "";
+  return `
+        <div class="meta-row" title="${escapeHtml(con.ayuda)}">
+          <span class="meta-key">Conexión:</span>
+          <span class="meta-val ${con.clase}">${escapeHtml(con.texto)}</span>
+        </div>`;
 }
 
 /** Feed lateral: los últimos 15 eventos de toda la empresa. */
@@ -2821,6 +2904,15 @@ function arrancarReloj() {
   const tick = () => DOM.currentTime.textContent = textoHora(new Date());
   tick();
   if (!state.clockInterval) state.clockInterval = setInterval(tick, 1000);
+
+  // Si el teléfono deja de mandar el latido, la base no cambia y no llega
+  // ningún aviso de tiempo real. Por eso las tarjetas se redibujan solas
+  // cada 30 s: así aparece "Sin señal" aunque no haya datos nuevos.
+  if (!state.conexionInterval) {
+    state.conexionInterval = setInterval(() => {
+      if (state.perfil && state.perfil.rol !== "superadmin" && document.visibilityState === "visible") renderDrivers();
+    }, 30000);
+  }
 
   if (!DOM.clockBtn.dataset.conClic) {
     DOM.clockBtn.dataset.conClic = "1";
