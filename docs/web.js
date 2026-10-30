@@ -854,6 +854,12 @@ function estadoConexion(viaje) {
   return { tipo: "esperando", corto: "Esperando datos", texto: "Esperando datos del teléfono", ayuda: "", clase: "" };
 }
 
+/** Valor del evento con su unidad: duración del parpadeo (ms) o grados del cabeceo. */
+function valorConUnidad(ev) {
+  if (ev.valor == null) return "";
+  return ev.tipo === "cabeceo" ? `${Math.round(ev.valor)}°` : `${Math.round(ev.valor)} ms`;
+}
+
 function nombreTipo(tipo) {
   return { parpadeo_lento: "Parpadeo lento", cabeceo: "Cabeceo", otro: "Otro" }[tipo] || tipo;
 }
@@ -1040,6 +1046,10 @@ function renderGrid(lista) {
           <span class="fatigue-label">Eventos en ${c.viajeActual ? "este viaje" : "el último viaje"}:</span>
           <span class="fatigue-score text-${cfg.colorClass}">${c.eventosRef.length}</span>
         </div>
+        <div class="fatigue-header">
+          <span class="fatigue-label">Parpadeos lentos: ${c.eventosRef.filter(e => e.tipo === "parpadeo_lento").length}
+            · Cabeceos: ${c.eventosRef.filter(e => e.tipo === "cabeceo").length}</span>
+        </div>
       </div>
 
       <div class="card-actions">
@@ -1130,7 +1140,7 @@ function renderFeed() {
       <span class="event-time">${formatoHora(ev.ocurrido_en)}</span>
       <div class="event-content">
         <strong>${escapeHtml(chofer)}</strong>
-        <p>${nombreTipo(ev.tipo)} · nivel ${ev.nivel}${ev.valor ? ` · ${ev.valor} ms` : ""}</p>
+        <p>${nombreTipo(ev.tipo)} · nivel ${ev.nivel}${ev.valor != null ? ` · ${valorConUnidad(ev)}` : ""}</p>
       </div>`;
     if (viaje) {
       item.style.cursor = "pointer";
@@ -1267,7 +1277,7 @@ function renderHistorial() {
       <td>${escapeHtml(tramo(f.viaje))}</td>
       <td>${nombreTipo(f.tipo)}</td>
       <td><span class="status-badge ${f.nivel === 2 ? "badge-danger" : "badge-warning"}">Nivel ${f.nivel}</span></td>
-      <td>${f.valor != null ? f.valor : "—"}</td>`;
+      <td>${f.valor != null ? valorConUnidad(f) : "—"}</td>`;
     DOM.historyTableBody.appendChild(tr);
   });
 
@@ -1584,7 +1594,7 @@ function itemEvento(ev) {
       <span class="event-time">${formatoHora(ev.ocurrido_en)}</span>
       <div class="event-content">
         <strong>${nombreTipo(ev.tipo)}</strong>
-        <p>Nivel ${ev.nivel}${ev.valor ? ` · ${ev.valor} ms` : ""} · ${formatoFechaHora(ev.ocurrido_en)}</p>
+        <p>Nivel ${ev.nivel}${ev.valor != null ? ` · ${valorConUnidad(ev)}` : ""} · ${formatoFechaHora(ev.ocurrido_en)}</p>
       </div>
     </div>`;
 }
