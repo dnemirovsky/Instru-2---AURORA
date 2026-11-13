@@ -85,11 +85,14 @@ const DOM = {
   countEnRuta: $("countEnRuta"),
   countWarning: $("countWarning"),
   countDanger: $("countDanger"),
+  countLevel2: $("countLevel2"),
+  pctLevel2: $("pctLevel2"),
   pctWarning: $("pctWarning"),
   pctDanger: $("pctDanger"),
   kpiCards: {
     all: $("kpiTotalCard"),
     precaucion: $("kpiWarningCard"),
+    microsueno: $("kpiLevel2Card"),
     alerta: $("kpiDangerCard")
   },
 
@@ -117,6 +120,7 @@ const DOM = {
   hkpiTotal: $("hkpiTotal"),
   hkpiNivel1: $("hkpiNivel1"),
   hkpiNivel2: $("hkpiNivel2"),
+  hkpiNivel3: $("hkpiNivel3"),
   hkpiViajes: $("hkpiViajes"),
   hkpiHoras: $("hkpiHoras"),
   chartTabs: document.querySelectorAll("[data-chart]"),
@@ -170,6 +174,7 @@ const DOM = {
   modalStatusDesc: $("modalStatusDesc"),
   modalNivel1: $("modalNivel1"),
   modalNivel2: $("modalNivel2"),
+  modalNivel3: $("modalNivel3"),
   modalEventsList: $("modalEventsList"),
 
   currentTime: $("currentTime"),
@@ -754,12 +759,8 @@ function armarChoferes() {
     const viajeRef = viajeActual || viajes[0] || null;
     const eventosRef = viajeRef ? (eventosPorViaje[viajeRef.id] || []) : [];
 
-    let status = "normal";
-    if (viajeActual) {
-      const evs = eventosPorViaje[viajeActual.id] || [];
-      if (evs.some(e => e.nivel === 2)) status = "alerta";
-      else if (evs.some(e => e.nivel === 1)) status = "precaucion";
-    }
+    const eventosActual = viajeActual ? (eventosPorViaje[viajeActual.id] || []) : [];
+    const status = viajeActual ? ESTADO_POR_NIVEL[nivelActual(eventosActual, Date.now())] : "normal";
 
     const todosLosEventos = viajes.flatMap(v => eventosPorViaje[v.id] || []);
 
@@ -773,7 +774,9 @@ function armarChoferes() {
       eventosTotales: todosLosEventos,
       nivel1: todosLosEventos.filter(e => e.nivel === 1).length,
       nivel2: todosLosEventos.filter(e => e.nivel === 2).length,
+      nivel3: todosLosEventos.filter(e => e.nivel === 3).length,
       horasTotales: viajes.reduce((acc, v) => acc + duracionHoras(v), 0),
+      eventosActual,
       status
     };
   });
@@ -854,14 +857,74 @@ function estadoConexion(viaje) {
   return { tipo: "esperando", corto: "Esperando datos", texto: "Esperando datos del teléfono", ayuda: "", clase: "" };
 }
 
-/** Valor del evento con su unidad: duración del parpadeo (ms) o grados del cabeceo. */
+/**
+ * Los tres niveles del aparato (firmware v17 en adelante):
+ *   1 = somnolencia: el promedio de duración del parpadeo subió (vibra)
+ *   2 = microsueño: un cierre de ojos de más de 0,5 s (pip)
+ *   3 = cabeceo: la cabeza cae hacia adelante (buzzer)
+ * clase = sufijo de las clases CSS (badge-, event-item-, row-, text-, swatch-).
+ */
+const NIVELES = {
+  1: { nombre: "Somnolencia", clase: "warning", color: "#e0983a" },
+  2: { nombre: "Microsueño",  clase: "level2",  color: "#d9622b" },
+  3: { nombre: "Cabeceo",     clase: "danger",  color: "#b8324f" }
+};
+// Estado del chofer segun el nivel mas alto del viaje en curso (0 = sin eventos)
+const ESTADO_POR_NIVEL = ["normal", "precaucion", "microsueno", "alerta"];
+
+/**
+ * Nivel ACTUAL del conductor, con la misma regla que la tarjeta del viaje en la app:
+ * el nivel más reciente entre los que siguen vigentes, si no 0 (normal).
+ *  - nivel 1: la vincha manda una alerta por cada bloque de 20 s que sigue somnoliento,
+ *    y el nivel 1 termina cuando pasa un bloque sin alerta: vale 20 s desde la última.
+ *  - nivel 2 (microsueño) y nivel 3 (cabeceo): valen 20 s desde el evento.
+ * VIGENCIA_MS tiene 1 s de margen por la demora en subir el evento.
+ */
+const VIGENCIA_MS = 21000;
+function nivelActual(eventos, ahoraMs) {
+  let nivel = 0, cuando = -Infinity;
+  for (const ev of eventos) {
+    const t = new Date(ev.ocurrido_en).getTime();
+    const n = Math.min(Math.max(ev.nivel || 0, 0), 3);
+    if (!n || ahoraMs - t > VIGENCIA_MS || ahoraMs - t < -60000) continue;   // vencido (o reloj muy corrido)
+    if (t > cuando) { cuando = t; nivel = n; }
+  }
+  return nivel;
+}
+
+/**
+ * Los niveles vencen solos (a los 20 s) aunque no llegue nada nuevo de la base:
+ * cada 2 s se recalcula el estado de cada conductor y se redibuja solo si cambió.
+ */
+function actualizarEstadosEnVivo() {
+  if (!state.choferes || !state.choferes.length) return;
+  let cambio = false;
+  const ahora = Date.now();
+  state.choferes.forEach(c => {
+    const nuevo = c.viajeActual ? ESTADO_POR_NIVEL[nivelActual(c.eventosActual || [], ahora)] : "normal";
+    if (nuevo !== c.status) { c.status = nuevo; cambio = true; }
+  });
+  if (cambio) { renderKPIs(); renderDrivers(); }
+}
+
+function infoNivel(nivel) {
+  return NIVELES[Math.min(Math.max(nivel || 1, 1), 3)];
+}
+
+/** Valor del evento con su unidad: grados del cabeceo, o ms (duración / promedio de duración). */
 function valorConUnidad(ev) {
   if (ev.valor == null) return "";
   return ev.tipo === "cabeceo" ? `${Math.round(ev.valor)}°` : `${Math.round(ev.valor)} ms`;
 }
 
 function nombreTipo(tipo) {
-  return { parpadeo_lento: "Parpadeo lento", cabeceo: "Cabeceo", otro: "Otro" }[tipo] || tipo;
+  return {
+    somnolencia: "Somnolencia",
+    microsueno: "Microsueño",
+    cabeceo: "Cabeceo",
+    parpadeo_lento: "Parpadeo lento",   // eventos viejos (antes de los 3 niveles)
+    otro: "Otro"
+  }[tipo] || tipo;
 }
 
 function tramo(viaje) {
@@ -877,8 +940,9 @@ function iniciales(nombre, apellido) {
 function getStatusConfig(status) {
   return {
     normal:     { label: "Normal",     badgeClass: "badge-normal",  colorClass: "normal"  },
-    precaucion: { label: "Precaución", badgeClass: "badge-warning", colorClass: "warning" },
-    alerta:     { label: "Alerta",     badgeClass: "badge-danger",  colorClass: "danger"  }
+    precaucion: { label: "Nivel 1 · Somnolencia", badgeClass: "badge-warning", colorClass: "warning" },
+    microsueno: { label: "Nivel 2 · Microsueño",  badgeClass: "badge-level2",  colorClass: "level2"  },
+    alerta:     { label: "Nivel 3 · Cabeceo",     badgeClass: "badge-danger",  colorClass: "danger"  }
   }[status] || { label: status, badgeClass: "badge-normal", colorClass: "normal" };
 }
 
@@ -959,6 +1023,7 @@ function renderKPIs() {
   const total = enViaje.length;
   const n = enViaje.filter(c => c.status === "normal").length;
   const p = enViaje.filter(c => c.status === "precaucion").length;
+  const m = enViaje.filter(c => c.status === "microsueno").length;
   const a = enViaje.filter(c => c.status === "alerta").length;
   const pct = (x) => total ? Math.round((x / total) * 100) + "%" : "0%";
 
@@ -966,6 +1031,8 @@ function renderKPIs() {
   DOM.countEnRuta.textContent = "En viaje";
   DOM.countWarning.textContent = p;
   DOM.countDanger.textContent = a;
+  if (DOM.countLevel2) DOM.countLevel2.textContent = m;
+  if (DOM.pctLevel2) DOM.pctLevel2.textContent = pct(m);
   DOM.pctWarning.textContent = pct(p);
   DOM.pctDanger.textContent = pct(a);
 
@@ -1011,7 +1078,7 @@ function renderGrid(lista) {
     card.innerHTML = `
       <div class="driver-card-header">
         <div class="driver-info-main">
-          <div class="driver-avatar ${c.status === "alerta" ? "avatar-alerta" : ""}">
+          <div class="driver-avatar ${c.status === "alerta" ? "avatar-alerta" : c.status === "microsueno" ? "avatar-microsueno" : ""}">
             ${escapeHtml(iniciales(c.nombre, c.apellido))}
           </div>
           <div class="driver-name-block">
@@ -1047,8 +1114,9 @@ function renderGrid(lista) {
           <span class="fatigue-score text-${cfg.colorClass}">${c.eventosRef.length}</span>
         </div>
         <div class="fatigue-header">
-          <span class="fatigue-label">Parpadeos lentos: ${c.eventosRef.filter(e => e.tipo === "parpadeo_lento").length}
-            · Cabeceos: ${c.eventosRef.filter(e => e.tipo === "cabeceo").length}</span>
+          <span class="fatigue-label">Nivel 1: ${c.eventosRef.filter(e => e.nivel === 1).length}
+            · Nivel 2: ${c.eventosRef.filter(e => e.nivel === 2).length}
+            · Nivel 3: ${c.eventosRef.filter(e => e.nivel === 3).length}</span>
         </div>
       </div>
 
@@ -1066,6 +1134,7 @@ function renderTable(lista) {
     const cfg = getStatusConfig(c.status);
     const tr = document.createElement("tr");
     if (c.status === "alerta") tr.className = "row-danger";
+    else if (c.status === "microsueno") tr.className = "row-level2";
     tr.innerHTML = `
       <td>
         <div class="table-driver-col">
@@ -1135,7 +1204,7 @@ function renderFeed() {
     const viaje = porViaje[ev.viaje_id];
     const chofer = viaje ? nombrePorChofer[viaje.chofer_id] : "—";
     const item = document.createElement("div");
-    item.className = `event-item ${ev.nivel === 2 ? "event-item-danger" : "event-item-warning"}`;
+    item.className = `event-item event-item-${infoNivel(ev.nivel).clase}`;
     item.innerHTML = `
       <span class="event-time">${formatoHora(ev.ocurrido_en)}</span>
       <div class="event-content">
@@ -1243,6 +1312,7 @@ function renderHistorial() {
   DOM.hkpiTotal.textContent = filas.length;
   DOM.hkpiNivel1.textContent = filas.filter(f => f.nivel === 1).length;
   DOM.hkpiNivel2.textContent = filas.filter(f => f.nivel === 2).length;
+  if (DOM.hkpiNivel3) DOM.hkpiNivel3.textContent = filas.filter(f => f.nivel === 3).length;
   // Los viajes y las horas acompañan a lo que se buscó: si el campo está
   // vacío son de toda la flota, y si no, solo de los que coinciden.
   const viajesMostrados = idsBuscados
@@ -1270,13 +1340,14 @@ function renderHistorial() {
 
   filas.slice(0, 200).forEach(f => {
     const tr = document.createElement("tr");
-    if (f.nivel === 2) tr.className = "row-danger";
+    if (f.nivel === 3) tr.className = "row-danger";
+    else if (f.nivel === 2) tr.className = "row-level2";
     tr.innerHTML = `
       <td>${formatoFechaHora(f.ocurrido_en)}</td>
       <td><strong>${escapeHtml(f.chofer)}</strong></td>
       <td>${escapeHtml(tramo(f.viaje))}</td>
       <td>${nombreTipo(f.tipo)}</td>
-      <td><span class="status-badge ${f.nivel === 2 ? "badge-danger" : "badge-warning"}">Nivel ${f.nivel}</span></td>
+      <td><span class="status-badge badge-${infoNivel(f.nivel).clase}">Nivel ${f.nivel}</span></td>
       <td>${f.valor != null ? valorConUnidad(f) : "—"}</td>`;
     DOM.historyTableBody.appendChild(tr);
   });
@@ -1349,13 +1420,13 @@ function dibujarGraficoViaje() {
   const base = margenArriba + areaAlto;
 
   const xDe = (ms) => margenIzq + ((ms - t0) / duracion) * areaAncho;
-  const yDe = (nivel) => base - (nivel === 2 ? areaAlto * 0.85 : areaAlto * 0.45);
+  const yDe = (nivel) => base - areaAlto * ({ 1: 0.32, 2: 0.6, 3: 0.88 }[Math.min(Math.max(nivel || 1, 1), 3)]);
 
-  // Lineas guia de los dos niveles
+  // Lineas guia de los tres niveles
   ctx.strokeStyle = colorLinea;
   ctx.lineWidth = 1;
   ctx.fillStyle = colorTexto;
-  [1, 2].forEach(nivel => {
+  [1, 2, 3].forEach(nivel => {
     const y = yDe(nivel);
     ctx.beginPath();
     ctx.moveTo(margenIzq, y);
@@ -1388,7 +1459,7 @@ function dibujarGraficoViaje() {
   eventos.forEach(ev => {
     const x = xDe(new Date(ev.ocurrido_en).getTime());
     const y = yDe(ev.nivel);
-    const color = ev.nivel === 2 ? "#ef4444" : "#f59e0b";
+    const color = infoNivel(ev.nivel).color;
 
     ctx.strokeStyle = color;
     ctx.lineWidth = 2;
@@ -1461,16 +1532,20 @@ function dibujarGrafico(filas) {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
     d.setDate(d.getDate() - i);
-    dias.push({ fecha: d, n1: 0, n2: 0 });
+    dias.push({ fecha: d, n1: 0, n2: 0, n3: 0 });
   }
   filas.forEach(f => {
     const d = new Date(f.ocurrido_en);
     d.setHours(0, 0, 0, 0);
     const dia = dias.find(x => x.fecha.getTime() === d.getTime());
-    if (dia) f.nivel === 2 ? dia.n2++ : dia.n1++;
+    if (dia) {
+      if (f.nivel >= 3) dia.n3++;
+      else if (f.nivel === 2) dia.n2++;
+      else dia.n1++;
+    }
   });
 
-  const maxVal = Math.max(1, ...dias.map(d => d.n1 + d.n2));
+  const maxVal = Math.max(1, ...dias.map(d => d.n1 + d.n2 + d.n3));
   const margenIzq = 34, margenAbajo = 28, margenArriba = 12;
   const areaAlto = alto - margenAbajo - margenArriba;
   const areaAncho = ancho - margenIzq - 10;
@@ -1502,12 +1577,15 @@ function dibujarGrafico(filas) {
     const x = margenIzq + paso * i + (paso - barra) / 2;
     const h1 = (d.n1 / maxVal) * areaAlto;
     const h2 = (d.n2 / maxVal) * areaAlto;
+    const h3 = (d.n3 / maxVal) * areaAlto;
     const base = margenArriba + areaAlto;
 
-    ctx.fillStyle = "#f59e0b";
+    ctx.fillStyle = NIVELES[1].color;
     ctx.fillRect(x, base - h1, barra, h1);
-    ctx.fillStyle = "#ef4444";
+    ctx.fillStyle = NIVELES[2].color;
     ctx.fillRect(x, base - h1 - h2, barra, h2);
+    ctx.fillStyle = NIVELES[3].color;
+    ctx.fillRect(x, base - h1 - h2 - h3, barra, h3);
 
     ctx.fillStyle = colorTexto;
     ctx.textAlign = "center";
@@ -1563,6 +1641,7 @@ function pintarModal() {
   DOM.modalMetrics.style.display = v ? "" : "none";
   DOM.modalNivel1.textContent = eventos.filter(e => e.nivel === 1).length;
   DOM.modalNivel2.textContent = eventos.filter(e => e.nivel === 2).length;
+  if (DOM.modalNivel3) DOM.modalNivel3.textContent = eventos.filter(e => e.nivel === 3).length;
 
   DOM.modalEnCurso.innerHTML = v ? `
     <h4 class="section-subtitle">Viaje en curso</h4>
@@ -1590,7 +1669,7 @@ function pintarModal() {
 
 function itemEvento(ev) {
   return `
-    <div class="event-item ${ev.nivel === 2 ? "event-item-danger" : "event-item-warning"}">
+    <div class="event-item event-item-${infoNivel(ev.nivel).clase}">
       <span class="event-time">${formatoHora(ev.ocurrido_en)}</span>
       <div class="event-content">
         <strong>${nombreTipo(ev.tipo)}</strong>
@@ -2922,6 +3001,12 @@ function arrancarReloj() {
     state.conexionInterval = setInterval(() => {
       if (state.perfil && state.perfil.rol !== "superadmin" && document.visibilityState === "visible") renderDrivers();
     }, 30000);
+  }
+  // El nivel actual de cada conductor vence a los 20 s: se revisa cada 2 s (igual que la app)
+  if (!state.nivelInterval) {
+    state.nivelInterval = setInterval(() => {
+      if (state.perfil && state.perfil.rol !== "superadmin" && document.visibilityState === "visible") actualizarEstadosEnVivo();
+    }, 2000);
   }
 
   if (!DOM.clockBtn.dataset.conClic) {

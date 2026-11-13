@@ -240,8 +240,8 @@
 
         <div class="kpi-card kpi-warning" data-filter="precaucion" id="kpiWarningCard">
           <div class="kpi-header">
-            <span class="kpi-title">Precaución (nivel 1)</span>
-            <span class="status-badge badge-warning"><span class="status-bullet"></span> Parpadeo lento</span>
+            <span class="kpi-title">Nivel 1</span>
+            <span class="status-badge badge-warning"><span class="status-bullet"></span> Somnolencia</span>
           </div>
           <div class="kpi-value-row">
             <span class="kpi-number text-warning" id="countWarning">0</span>
@@ -249,10 +249,21 @@
           </div>
         </div>
 
+        <div class="kpi-card kpi-level2" data-filter="microsueno" id="kpiLevel2Card">
+          <div class="kpi-header">
+            <span class="kpi-title">Nivel 2</span>
+            <span class="status-badge badge-level2"><span class="status-bullet"></span> Microsueño</span>
+          </div>
+          <div class="kpi-value-row">
+            <span class="kpi-number text-level2" id="countLevel2">0</span>
+            <span class="kpi-percentage" id="pctLevel2">0%</span>
+          </div>
+        </div>
+
         <div class="kpi-card kpi-danger" data-filter="alerta" id="kpiDangerCard">
           <div class="kpi-header">
-            <span class="kpi-title">Alerta (nivel 2)</span>
-            <span class="status-badge badge-danger"><span class="status-bullet blink"></span> Somnolencia</span>
+            <span class="kpi-title">Nivel 3</span>
+            <span class="status-badge badge-danger"><span class="status-bullet blink"></span> Cabeceo</span>
           </div>
           <div class="kpi-value-row">
             <span class="kpi-number text-danger" id="countDanger">0</span>
@@ -275,8 +286,9 @@
           <span class="filter-label">Filtrar estado:</span>
           <button class="filter-btn active" data-status="all">Todos</button>
           <button class="filter-btn" data-status="normal">Normal</button>
-          <button class="filter-btn" data-status="precaucion">Precaución</button>
-          <button class="filter-btn" data-status="alerta">Alerta</button>
+          <button class="filter-btn" data-status="precaucion">Nivel 1</button>
+          <button class="filter-btn" data-status="microsueno">Nivel 2</button>
+          <button class="filter-btn" data-status="alerta">Nivel 3</button>
         </div>
 
         <div class="view-toggle">
@@ -376,11 +388,15 @@
           <span class="hkpi-value" id="hkpiTotal">0</span>
         </div>
         <div class="history-kpi-card hkpi-card-danger">
-          <span class="hkpi-title">Nivel 2 (alerta)</span>
-          <span class="hkpi-value text-danger" id="hkpiNivel2">0</span>
+          <span class="hkpi-title">Nivel 3 (cabeceo)</span>
+          <span class="hkpi-value text-danger" id="hkpiNivel3">0</span>
+        </div>
+        <div class="history-kpi-card hkpi-card-level2">
+          <span class="hkpi-title">Nivel 2 (microsueño)</span>
+          <span class="hkpi-value text-level2" id="hkpiNivel2">0</span>
         </div>
         <div class="history-kpi-card hkpi-card-warning">
-          <span class="hkpi-title">Nivel 1 (precaución)</span>
+          <span class="hkpi-title">Nivel 1 (somnolencia)</span>
           <span class="hkpi-value text-warning" id="hkpiNivel1">0</span>
         </div>
         <div class="history-kpi-card hkpi-card-info">
@@ -420,11 +436,15 @@
           <div class="chart-legend">
             <div class="legend-item">
               <span class="legend-swatch swatch-warning"></span>
-              <span><strong>Nivel 1</strong> · precaución</span>
+              <span><strong>Nivel 1</strong> · somnolencia</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-swatch swatch-level2"></span>
+              <span><strong>Nivel 2</strong> · microsueño</span>
             </div>
             <div class="legend-item">
               <span class="legend-swatch swatch-danger"></span>
-              <span><strong>Nivel 2</strong> · alerta</span>
+              <span><strong>Nivel 3</strong> · cabeceo</span>
             </div>
           </div>
         </div>
@@ -453,11 +473,15 @@
           <div class="chart-legend">
             <div class="legend-item">
               <span class="legend-swatch swatch-warning"></span>
-              <span><strong>Nivel 1</strong> · precaución</span>
+              <span><strong>Nivel 1</strong> · somnolencia</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-swatch swatch-level2"></span>
+              <span><strong>Nivel 2</strong> · microsueño</span>
             </div>
             <div class="legend-item">
               <span class="legend-swatch swatch-danger"></span>
-              <span><strong>Nivel 2</strong> · alerta</span>
+              <span><strong>Nivel 3</strong> · cabeceo</span>
             </div>
           </div>
           <span class="chart-meta-text" id="chartTripMeta"></span>
@@ -1030,12 +1054,16 @@
         <!-- Conteo de eventos del viaje que esta pasando ahora -->
         <div class="modal-metrics-grid" id="modalMetrics">
           <div class="metric-box">
-            <span class="metric-title">Eventos nivel 1</span>
+            <span class="metric-title">Nivel 1 · somnolencia</span>
             <span class="metric-value text-warning" id="modalNivel1">0</span>
           </div>
           <div class="metric-box">
-            <span class="metric-title">Eventos nivel 2</span>
-            <span class="metric-value text-danger" id="modalNivel2">0</span>
+            <span class="metric-title">Nivel 2 · microsueño</span>
+            <span class="metric-value text-level2" id="modalNivel2">0</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-title">Nivel 3 · cabeceo</span>
+            <span class="metric-value text-danger" id="modalNivel3">0</span>
           </div>
         </div>
 

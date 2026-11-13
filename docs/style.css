@@ -1,6 +1,6 @@
 /* =========================================================
    VigilaDrive - Estilos del Sistema de Monitoreo de Flotas
-   Diseño: Sobrio, Limpio, Profesional y Prolijo
+   DiseÃ±o: Sobrio, Limpio, Profesional y Prolijo
    ========================================================= */
 
 :root {
@@ -10,30 +10,35 @@
      el dispositivo. Nada de grises azulados de plantilla.
      --------------------------------------------------------------- */
   --noche: #0e1126;            /* el fondo del header */
-  --bg-main: #f8f5f2;          /* porcelana cálida */
-  --bg-card: #ffffff;          /* tarjeta: blanco limpio sobre el papel cálido */
+  --bg-main: #f8f5f2;          /* porcelana cÃ¡lida */
+  --bg-card: #ffffff;          /* tarjeta: blanco limpio sobre el papel cÃ¡lido */
   --bg-subtle: #f3efea;        /* hundido: cabeceras de tabla, campos */
 
   --text-primary: #1c1b2e;
   --text-secondary: #56526a;
   --text-muted: #8b8499;
 
-  --border-color: #e8e2db;     /* hairline cálido, no gris frío */
+  --border-color: #e8e2db;     /* hairline cÃ¡lido, no gris frÃ­o */
   --border-strong: #d6cdc2;
   --border-focus: #f2778d;
 
-  /* Estados: son los del aparato, no los de una librería */
+  /* Estados: son los del aparato, no los de una librerÃ­a */
   --normal-color: #2e7d6b;     /* sereno */
   --normal-bg: #eaf3f0;
   --normal-border: #bcd9d1;
   --normal-text: #1f5a4d;
 
-  --warning-color: #e0983a;    /* nivel 1, precaución */
+  --warning-color: #e0983a;    /* nivel 1, somnolencia */
   --warning-bg: #fbf0dd;
   --warning-border: #eed3a4;
   --warning-text: #8a5716;
 
-  --danger-color: #b8324f;     /* nivel 2, alerta */
+  --level2-color: #d9622b;     /* nivel 2, microsueÃ±o */
+  --level2-bg: #fbeadf;
+  --level2-border: #f0c6aa;
+  --level2-text: #84381a;
+
+  --danger-color: #b8324f;     /* nivel 3, cabeceo (alerta mÃ¡xima) */
   --danger-bg: #fbeaee;
   --danger-border: #eec2cc;
   --danger-text: #7d1f35;
@@ -42,12 +47,12 @@
   --primary-hover: #e05a75;
   --primary-light: #fdeef1;
 
-  /* Radios con jerarquía: superficies, controles, pastillas */
+  /* Radios con jerarquÃ­a: superficies, controles, pastillas */
   --radius-sm: 9px;
   --radius-md: 12px;
   --radius-lg: 18px;
 
-  /* Una sola sombra, cálida, y solo para lo que está levantado */
+  /* Una sola sombra, cÃ¡lida, y solo para lo que estÃ¡ levantado */
   --shadow-sm: 0 1px 2px rgba(60, 40, 30, 0.04);
   --shadow-md: 0 6px 18px -8px rgba(60, 40, 30, 0.18);
   --shadow-lg: 0 18px 44px -18px rgba(40, 25, 35, 0.28);
@@ -90,7 +95,7 @@ body {
 }
 
 .header-container {
-  position: relative;   /* ancla para centrar el nombre de la sesión */
+  position: relative;   /* ancla para centrar el nombre de la sesiÃ³n */
   max-width: 1440px;
   margin: 0 auto;
   padding: 0.85rem 1.5rem;
@@ -132,8 +137,8 @@ body {
   font-weight: 400;
 }
 
-/* Centrado respecto del header completo, no del espacio que sobra: así no se
-   corre cuando cambia el ancho del reloj o del menú. */
+/* Centrado respecto del header completo, no del espacio que sobra: asÃ­ no se
+   corre cuando cambia el ancho del reloj o del menÃº. */
 .header-center {
   position: absolute;
   left: 50%;
@@ -250,16 +255,16 @@ body {
 }
 
 /* =========================================================
-   Sección de KPIs de Estados
+   SecciÃ³n de KPIs de Estados
    ========================================================= */
 /* ---------------------------------------------------------------
    Los tres estados, con el mismo lenguaje visual que las tarjetas del
-   historial: tarjeta blanca, franja de color a la izquierda, número
-   y título en la misma línea.
+   historial: tarjeta blanca, franja de color a la izquierda, nÃºmero
+   y tÃ­tulo en la misma lÃ­nea.
    --------------------------------------------------------------- */
 .kpi-section {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 1.1rem;
   margin-bottom: 1.6rem;
 }
@@ -303,6 +308,9 @@ body {
   box-shadow: inset 0 0 0 2px rgba(28, 27, 46, 0.55);
 }
 
+@media (max-width: 1100px) {
+  .kpi-section { grid-template-columns: repeat(2, 1fr); }
+}
 @media (max-width: 860px) {
   .kpi-section { grid-template-columns: 1fr; }
 }
@@ -427,8 +435,8 @@ body {
   border-radius: 999px;
 }
 
-/* Dentro de un bloque tintado, la pastilla se apoya en blanco translúcido */
-/* Las pastillas ya no hacen falta acá: el punto de color dice el estado */
+/* Dentro de un bloque tintado, la pastilla se apoya en blanco translÃºcido */
+/* Las pastillas ya no hacen falta acÃ¡: el punto de color dice el estado */
 .kpi-card .status-badge {
   background: none;
   border: none;
@@ -448,7 +456,7 @@ body {
 }
 
 /* =========================================================
-   Barra de Controles, Búsqueda y Filtros
+   Barra de Controles, BÃºsqueda y Filtros
    ========================================================= */
 .controls-bar {
   background-color: transparent;
@@ -616,7 +624,7 @@ body {
 }
 
 /* =========================================================
-   Vista Cuadrícula de Conductores (Cards)
+   Vista CuadrÃ­cula de Conductores (Cards)
    ========================================================= */
 .drivers-grid {
   display: grid;
@@ -648,11 +656,12 @@ body {
   box-shadow: var(--shadow-md);
 }
 
-/* Borde lateral según estado */
+/* Borde lateral segÃºn estado */
 .driver-card.card-normal {
   border-left: 4px solid var(--normal-color);
 }
-.driver-card.card-warning {
+.driver-card.card-warning,
+.driver-card.card-precaucion {
   border-left: 4px solid var(--warning-color);
 }
 .driver-card.card-alerta {
@@ -901,7 +910,7 @@ body {
   background-color: var(--bg-subtle);
 }
 
-/* La fila de nivel 2 se marca con una franja, como las tarjetas */
+/* La fila de nivel 3 se marca con una franja, como las tarjetas (nivel 2: ver al final) */
 .drivers-table tbody tr.row-danger td:first-child {
   box-shadow: inset 3px 0 0 var(--danger-color);
 }
@@ -1070,7 +1079,7 @@ body {
 }
 
 /* =========================================================
-   Estado Vacío (Sin resultados)
+   Estado VacÃ­o (Sin resultados)
    ========================================================= */
 .empty-state {
   text-align: center;
@@ -1266,10 +1275,10 @@ body {
   margin-top: 0.25rem;
 }
 
-/* Grid de Métricas */
+/* Grid de MÃ©tricas */
 .modal-metrics-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 0.75rem;
 }
 
@@ -1433,7 +1442,7 @@ body {
 }
 
 /* =========================================================
-   Navegación y Menú Desplegable del Header
+   NavegaciÃ³n y MenÃº Desplegable del Header
    ========================================================= */
 .brand-nav-group {
   display: flex;
@@ -1481,11 +1490,11 @@ body {
   transform: rotate(180deg);
 }
 
-/* Menú Desplegable Flotante */
+/* MenÃº Desplegable Flotante */
 .nav-dropdown-menu {
   position: absolute;
-  /* El puente invisible de arriba evita que el menú se cierre al pasar el
-     mouse por el hueco entre el botón y la lista. */
+  /* El puente invisible de arriba evita que el menÃº se cierre al pasar el
+     mouse por el hueco entre el botÃ³n y la lista. */
   top: calc(100% + 8px);
   left: 0;
   background-color: #1e293b;
@@ -1563,7 +1572,7 @@ body {
 }
 
 /* =========================================================
-   Vistas de la Aplicación y Encabezados
+   Vistas de la AplicaciÃ³n y Encabezados
    ========================================================= */
 .app-view {
   animation: fadeInView 0.25s ease;
@@ -1720,7 +1729,7 @@ body {
 }
 
 /* =========================================================
-   Gráfico de Alarmas vs. Horas de Manejo
+   GrÃ¡fico de Alarmas vs. Horas de Manejo
    ========================================================= */
 .history-chart-card {
   background-color: var(--bg-card);
@@ -2147,7 +2156,7 @@ body {
 
 
 /* =========================================================
-   AURORA — Agregados para el panel conectado a Supabase
+   AURORA â€” Agregados para el panel conectado a Supabase
    (login, alta de conductor y ajustes del historial)
    ========================================================= */
 
@@ -2242,7 +2251,7 @@ body {
   margin-bottom: 12px;
 }
 
-/* ---------- Olvidé mi contraseña ---------- */
+/* ---------- OlvidÃ© mi contraseÃ±a ---------- */
 .login-link {
   display: block;
   width: 100%;
@@ -2276,7 +2285,7 @@ body {
   line-height: 1.45;
 }
 
-/* ---------- Cambio de contraseña obligatorio ---------- */
+/* ---------- Cambio de contraseÃ±a obligatorio ---------- */
 .cuenta-aviso {
   background: var(--warning-bg);
   border: 1px solid var(--warning-border);
@@ -2287,7 +2296,7 @@ body {
   margin-bottom: 20px;
 }
 
-/* ---------- Sesión en el header ---------- */
+/* ---------- SesiÃ³n en el header ---------- */
 .session-info {
   font-size: 0.82rem;
   color: #ffffff;
@@ -2405,7 +2414,7 @@ body {
   color: var(--text-muted);
 }
 /* =========================================================
-   Ver / ocultar contraseña (el "ojito")
+   Ver / ocultar contraseÃ±a (el "ojito")
    ========================================================= */
 .password-wrap {
   position: relative;
@@ -2444,7 +2453,7 @@ body {
   outline-offset: 1px;
 }
 
-/* Cuando el campo está deshabilitado, el ojo no debe invitar a tocarlo */
+/* Cuando el campo estÃ¡ deshabilitado, el ojo no debe invitar a tocarlo */
 .password-wrap .form-input:disabled + .password-toggle {
   opacity: 0.4;
   pointer-events: none;
@@ -2753,7 +2762,7 @@ body {
 
 /* ---------- Barras de deslizamiento siempre visibles ----------
    En macOS las barras se esconden hasta que uno empieza a deslizar, y con
-   tablas anchas no se nota que hay más columnas a la derecha. Definiendo el
+   tablas anchas no se nota que hay mÃ¡s columnas a la derecha. Definiendo el
    estilo, el navegador las deja fijas. */
 .csv-tabla-wrap::-webkit-scrollbar {
   -webkit-appearance: none;   /* clave: sin esto macOS la esconde sola */
@@ -2799,7 +2808,7 @@ body {
   font-size: 0.8rem;
   color: var(--text-secondary);
 }
-/* Resultado de alta cuando todo falló: se ve como error, no como éxito */
+/* Resultado de alta cuando todo fallÃ³: se ve como error, no como Ã©xito */
 .alta-resultado-error {
   border-color: var(--danger-border) !important;
   background: var(--danger-bg) !important;
@@ -2816,7 +2825,7 @@ body {
 /* =========================================================
    Pantalla de login: logo y fondo animado tipo aurora
    Paleta tomada del propio logo: rosa #f2778d y crema #ffd7d2,
-   más un violeta y un azul para dar profundidad.
+   mÃ¡s un violeta y un azul para dar profundidad.
    ========================================================= */
 
 /* ---------- Logo ---------- */
@@ -2831,7 +2840,7 @@ body {
   transform: translateX(-3px);
 }
 
-/* Resplandor detrás del logo, latiendo muy suave */
+/* Resplandor detrÃ¡s del logo, latiendo muy suave */
 .login-logo-wrap::before {
   content: "";
   position: absolute;
@@ -2931,9 +2940,9 @@ body {
 /* ---------- Destellos ---------- */
 .aurora-destellos span {
   /* Valores de respaldo; cada destello trae los suyos desde el HTML. */
-  --s: 1;        /* tamaño: 1 es el más grande */
-  --o: 0.9;      /* intensidad máxima */
-  --dur: 12s;    /* cada cuánto vuelve a titilar */
+  --s: 1;        /* tamaÃ±o: 1 es el mÃ¡s grande */
+  --o: 0.9;      /* intensidad mÃ¡xima */
+  --dur: 12s;    /* cada cuÃ¡nto vuelve a titilar */
 
   position: absolute;
   left: var(--x);
@@ -2941,7 +2950,7 @@ body {
   width: calc(3px * var(--s));
   height: calc(3px * var(--s));
   border-radius: 50%;
-  /* Mismo color que los campos de usuario y contraseña */
+  /* Mismo color que los campos de usuario y contraseÃ±a */
   background: var(--campo-fondo);
   box-shadow: 0 0 calc(8px * var(--s)) calc(2px * var(--s)) var(--campo-fondo);
   opacity: 0;
@@ -2956,7 +2965,7 @@ body {
 }
 
 /* ---------- Grano ---------- */
-/* Textura fina encima de todo, para que los degradés no se vean planos.
+/* Textura fina encima de todo, para que los degradÃ©s no se vean planos.
    Es un SVG generado en el momento, no un archivo aparte. */
 .aurora-grano {
   position: absolute;
@@ -2985,7 +2994,7 @@ body {
    Campos del login: color propio, ignorando el autocompletado
    ========================================================= */
 
-/* Cambiá estos dos valores y listo */
+/* CambiÃ¡ estos dos valores y listo */
 .login-screen {
   --campo-fondo: #fdfaf6;   /* fondo del campo, y color de los destellos */
   --campo-borde: #fbede6;   /* bordecito */
@@ -3002,7 +3011,7 @@ body {
   box-shadow: 0 0 0 3px rgba(228, 137, 156, 0.18);
 }
 
-/* Chrome no deja cambiar el fondo del autocompletado, pero sí la sombra
+/* Chrome no deja cambiar el fondo del autocompletado, pero sÃ­ la sombra
    interna: una sombra enorme del color que queremos lo tapa por completo. */
 .login-card .form-input:-webkit-autofill,
 .login-card .form-input:-webkit-autofill:hover,
@@ -3013,7 +3022,7 @@ body {
   transition: background-color 9999s;   /* evita el parpadeo celeste inicial */
 }
 
-/* Logo de AURORA en el header, en lugar del ícono viejo */
+/* Logo de AURORA en el header, en lugar del Ã­cono viejo */
 .brand-icon {
   background: none;
   border: none;
@@ -3052,13 +3061,13 @@ body {
   outline-offset: 2px;
 }
 
-/* Botón que quedó solo con ícono: cuadrado, sin el hueco del texto */
+/* BotÃ³n que quedÃ³ solo con Ã­cono: cuadrado, sin el hueco del texto */
 .btn-solo-icono {
   padding: 0.5rem;
   gap: 0;
 }
 
-/* ---------- Reloj: formato y animación de vuelta de hoja ---------- */
+/* ---------- Reloj: formato y animaciÃ³n de vuelta de hoja ---------- */
 .clock-display {
   cursor: pointer;
   user-select: none;
@@ -3077,7 +3086,7 @@ body {
   animation: voltear-hora 0.34s ease-in-out;
 }
 
-/* Gira hacia abajo hasta quedar de canto (ahí se cambia el texto) y sigue
+/* Gira hacia abajo hasta quedar de canto (ahÃ­ se cambia el texto) y sigue
    girando hasta volver a quedar de frente. */
 @keyframes voltear-hora {
   0%   { transform: rotateX(0deg); }
@@ -3090,10 +3099,10 @@ body {
 }
 
 /* =========================================================
-   Menú desplegable: apertura escalonada
+   MenÃº desplegable: apertura escalonada
    ========================================================= */
 
-/* Puente invisible entre el botón y la lista, para que el menú no se cierre
+/* Puente invisible entre el botÃ³n y la lista, para que el menÃº no se cierre
    al pasar el mouse por el espacio que hay entre los dos. */
 .nav-dropdown-menu::before {
   content: "";
@@ -3104,8 +3113,8 @@ body {
   height: 10px;
 }
 
-/* Cada ítem entra desde arriba. El retardo de cada uno lo pone el JS, para
-   que el escalonado cuente solo los que están visibles para ese rol. */
+/* Cada Ã­tem entra desde arriba. El retardo de cada uno lo pone el JS, para
+   que el escalonado cuente solo los que estÃ¡n visibles para ese rol. */
 .nav-dropdown-menu .dropdown-item {
   animation: item-entrada 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -3119,7 +3128,7 @@ body {
   .nav-dropdown-menu .dropdown-item { animation: none; }
 }
 
-/* El logo y la palabra "aurora" se comportan como un botón entero */
+/* El logo y la palabra "aurora" se comportan como un botÃ³n entero */
 .brand,
 .brand * {
   cursor: pointer;
@@ -3149,11 +3158,11 @@ body {
 .aurora-header {
   position: absolute;
   inset: 0;
-  overflow: hidden;          /* recorta las nubes sin recortar el menú */
+  overflow: hidden;          /* recorta las nubes sin recortar el menÃº */
   pointer-events: none;
   z-index: 0;
   opacity: 0;
-  /* Al salir se apagan lento; al entrar, algo más rápido (ver abajo). */
+  /* Al salir se apagan lento; al entrar, algo mÃ¡s rÃ¡pido (ver abajo). */
   transition: opacity 1.4s ease-out;
 }
 
@@ -3170,8 +3179,8 @@ body {
   will-change: transform;
 }
 
-/* Manchas anchas y superpuestas entre sí, no una al lado de la otra.
-   Al ser más anchas que la distancia que las separa, sus bordes se mezclan. */
+/* Manchas anchas y superpuestas entre sÃ­, no una al lado de la otra.
+   Al ser mÃ¡s anchas que la distancia que las separa, sus bordes se mezclan. */
 .nube-1 {
   width: 46vw; height: 300px;
   top: -190px; left: -8%;
@@ -3200,7 +3209,7 @@ body {
   animation: nube-deriva-4 17s ease-in-out infinite;
 }
 
-/* Tres paradas por ciclo y recorridos distintos: así ninguna repite el
+/* Tres paradas por ciclo y recorridos distintos: asÃ­ ninguna repite el
    camino de otra y el conjunto nunca se ve igual dos veces. */
 @keyframes nube-deriva-1 {
   0%, 100% { transform: translate(0, 0) scale(1); }
@@ -3230,10 +3239,10 @@ body {
   .nube { animation: none; }
 }
 /* =========================================================
-   Detalles finales del rediseño
+   Detalles finales del rediseÃ±o
    ========================================================= */
 
-/* Foco de teclado visible y coherente en toda la aplicación */
+/* Foco de teclado visible y coherente en toda la aplicaciÃ³n */
 .main-container :focus-visible,
 .modal-card :focus-visible {
   outline: 2px solid var(--primary-color);
@@ -3245,7 +3254,7 @@ body {
   background: rgba(242, 119, 141, 0.28);
 }
 
-/* Los números del panel comparten la tipografía del instrumento */
+/* Los nÃºmeros del panel comparten la tipografÃ­a del instrumento */
 .kpi-number,
 .hkpi-value,
 .metric-value,
@@ -3270,7 +3279,7 @@ body {
   margin-bottom: 1rem;
 }
 
-/* Filas de tabla un poco más aireadas: se leen de un vistazo */
+/* Filas de tabla un poco mÃ¡s aireadas: se leen de un vistazo */
 .drivers-table td {
   padding: 0.85rem 0.75rem;
 }
@@ -3304,7 +3313,7 @@ body {
 }
 
 /* =========================================================
-   Tablas de administración: filtro, orden y acciones
+   Tablas de administraciÃ³n: filtro, orden y acciones
    ========================================================= */
 
 /* La baja no es un error: es un estado neutro */
@@ -3316,13 +3325,13 @@ body {
 
 .badge-neutro .status-bullet { background-color: var(--text-muted); }
 
-/* ---------- Botones de acción de cada fila ----------
-   Editar es la acción de todos los días y va discreta; dar de baja es
+/* ---------- Botones de acciÃ³n de cada fila ----------
+   Editar es la acciÃ³n de todos los dÃ­as y va discreta; dar de baja es
    destructiva y va en rojo, separada, para no confundirlas al apurarse. */
 .acciones-fila {
   display: inline-flex;
   align-items: center;
-  gap: 0.85rem;       /* separación clara entre una y otra */
+  gap: 0.85rem;       /* separaciÃ³n clara entre una y otra */
 }
 
 .btn-accion {
@@ -3352,8 +3361,8 @@ body {
 }
 
 
-/* ---------- Menú de la columna "Estado" ----------
-   Se abre desde el encabezado, como en una planilla de cálculo. */
+/* ---------- MenÃº de la columna "Estado" ----------
+   Se abre desde el encabezado, como en una planilla de cÃ¡lculo. */
 .th-menu {
   position: relative;
   white-space: nowrap;
@@ -3377,7 +3386,7 @@ body {
 
 .th-boton.con-filtro { color: var(--primary-color); font-weight: 600; }
 
-/* Mismo tamaño siempre; solo cambia el color cuando hay filtro puesto */
+/* Mismo tamaÃ±o siempre; solo cambia el color cuando hay filtro puesto */
 .th-flecha {
   font-size: 0.62rem;
   line-height: 1;
@@ -3427,13 +3436,13 @@ body {
 
 .menu-columna button:hover { background: var(--bg-subtle); color: var(--text-primary); }
 
-/* La opción activa lleva un tilde al final */
+/* La opciÃ³n activa lleva un tilde al final */
 .menu-columna button.elegido {
   color: var(--primary-color);
   font-weight: 600;
 }
 
-.menu-columna button.elegido::after { content: "✓"; }
+.menu-columna button.elegido::after { content: "âœ“"; }
 
 .menu-sep {
   height: 1px;
@@ -3443,7 +3452,7 @@ body {
 
 /* ---------- Nada se mueve al tocar los botones ----------
    "Dar de baja" y "Reactivar" tienen distinto largo, y las etiquetas de
-   estado también. Sin anchos mínimos, cada clic reacomodaba la tabla. */
+   estado tambiÃ©n. Sin anchos mÃ­nimos, cada clic reacomodaba la tabla. */
 .btn-accion {
   min-width: 104px;
   justify-content: center;
@@ -3454,7 +3463,7 @@ body {
   justify-content: center;
 }
 
-/* Dar de baja y reactivar: el mismo azul noche translúcido */
+/* Dar de baja y reactivar: el mismo azul noche translÃºcido */
 .btn-accion-baja {
   background-color: rgba(14, 17, 38, 0.07);
   color: var(--noche);
@@ -3467,10 +3476,10 @@ body {
 }
 
 /* =========================================================
-   Anchos fijos en las tablas de administración
+   Anchos fijos en las tablas de administraciÃ³n
    ---------------------------------------------------------
-   Las tablas HTML reparten el ancho según lo que hay adentro, así que al
-   filtrar cambiaban de tamaño las columnas y todo se corría de lugar.
+   Las tablas HTML reparten el ancho segÃºn lo que hay adentro, asÃ­ que al
+   filtrar cambiaban de tamaÃ±o las columnas y todo se corrÃ­a de lugar.
    Con anchos fijos, el contenido cambia pero la grilla se queda quieta.
    ========================================================= */
 
@@ -3481,21 +3490,21 @@ body {
 
 /* Reparto de columnas.
    Los porcentajes reparten el espacio de forma pareja en pantallas anchas
-   (así no queda todo el sobrante en una sola columna). El ancho mínimo de
-   la tabla garantiza que, en pantallas angostas, ningún porcentaje quede
-   más chico que lo que necesita su contenido — en vez de apretarse, aparece
+   (asÃ­ no queda todo el sobrante en una sola columna). El ancho mÃ­nimo de
+   la tabla garantiza que, en pantallas angostas, ningÃºn porcentaje quede
+   mÃ¡s chico que lo que necesita su contenido â€” en vez de apretarse, aparece
    la barra de desplazamiento del contenedor.
    Cuentas: la columna Acciones necesita ~246px (dos botones de 104px, el
    espacio entre ellos y el relleno de la celda) y Estado ~142px. */
 
-/* Choferes: Chofer · Usuario · Estado · Acciones */
+/* Choferes: Chofer Â· Usuario Â· Estado Â· Acciones */
 #viewAdminChoferesEdit .drivers-table { min-width: 900px; }
 #viewAdminChoferesEdit .drivers-table th:nth-child(1) { width: 34%; }
 #viewAdminChoferesEdit .drivers-table th:nth-child(2) { width: 18%; }
 #viewAdminChoferesEdit .drivers-table th:nth-child(3) { width: 20%; }
 #viewAdminChoferesEdit .drivers-table th:nth-child(4) { width: 28%; }
 
-/* Administradores: Administrador · Usuario · Empresa · Estado · Acciones */
+/* Administradores: Administrador Â· Usuario Â· Empresa Â· Estado Â· Acciones */
 #viewSuperadminEdit .drivers-table { min-width: 1040px; }
 #viewSuperadminEdit .drivers-table th:nth-child(1) { width: 27%; }
 #viewSuperadminEdit .drivers-table th:nth-child(2) { width: 15%; }
@@ -3504,9 +3513,9 @@ body {
 #viewSuperadminEdit .drivers-table th:nth-child(5) { width: 24%; }
 
 /* ---------- Acciones ----------
-   Los botones van pegados al borde derecho de la tabla. El título no: va
+   Los botones van pegados al borde derecho de la tabla. El tÃ­tulo no: va
    centrado exactamente sobre el par de botones. Para eso, el texto vive en
-   un bloque del mismo ancho que el grupo de botones (dos de 104px más los
+   un bloque del mismo ancho que el grupo de botones (dos de 104px mÃ¡s los
    0.85rem que los separan), alineado a la derecha igual que ellos. */
 #viewAdminChoferesEdit .drivers-table th:last-child,
 #viewAdminChoferesEdit .drivers-table td:last-child,
@@ -3521,9 +3530,9 @@ body {
   text-align: center;
 }
 
-/* Ancho exacto, no mínimo: si un botón pudiera crecer, el título dejaría de
+/* Ancho exacto, no mÃ­nimo: si un botÃ³n pudiera crecer, el tÃ­tulo dejarÃ­a de
    quedar centrado sobre ellos. Con el relleno lateral en 0.55rem, el texto
-   más largo ("Dar de baja") entra holgado en 104px. */
+   mÃ¡s largo ("Dar de baja") entra holgado en 104px. */
 .btn-accion {
   width: 104px;
   padding-left: 0.55rem;
@@ -3531,7 +3540,7 @@ body {
 }
 
 /* ---------- Estado ----------
-   El título y las pastillas, centrados en la columna. */
+   El tÃ­tulo y las pastillas, centrados en la columna. */
 #viewAdminChoferesEdit .drivers-table th:nth-child(3),
 #viewAdminChoferesEdit .drivers-table td:nth-child(3),
 #viewSuperadminEdit .drivers-table th:nth-child(4),
@@ -3561,7 +3570,7 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* Aclaración debajo del buscador del historial */
+/* AclaraciÃ³n debajo del buscador del historial */
 .busqueda-resultado {
   display: block;
   font-size: 0.78rem;
@@ -3572,7 +3581,7 @@ body {
 
 .busqueda-resultado.sin-resultados { color: var(--danger-color); }
 
-/* Lista de conductores que coinciden con la búsqueda */
+/* Lista de conductores que coinciden con la bÃºsqueda */
 .coincidencias {
   display: flex;
   flex-wrap: wrap;
@@ -3615,9 +3624,45 @@ body {
 }
 
 .chip-coincidencia.elegido span { color: rgba(255, 255, 255, 0.8); }
-/* Campo de CUIT bloqueado: la empresa ya existe, el dato no se redefine acá */
+/* Campo de CUIT bloqueado: la empresa ya existe, el dato no se redefine acÃ¡ */
 .form-input-bloqueado {
   background-color: var(--bg-subtle);
   color: var(--text-secondary);
   cursor: not-allowed;
 }
+
+/* =====================================================================
+   Nivel 2 (microsueÃ±o): naranja, entre el nivel 1 (Ã¡mbar) y el 3 (rojo).
+   Mismos componentes que warning/danger.
+   ===================================================================== */
+.kpi-level2::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 3px;
+                      background-color: var(--level2-color); }
+.text-level2 { color: var(--level2-color); }
+.badge-level2 {
+  background-color: var(--level2-bg);
+  color: var(--level2-text);
+  border: 1px solid var(--level2-border);
+}
+.badge-level2 .status-bullet { background-color: var(--level2-color); }
+.driver-card.card-microsueno { border-left: 4px solid var(--level2-color); }
+.driver-avatar.avatar-microsueno {
+  background-color: var(--level2-bg);
+  color: var(--level2-text);
+  border: 2px solid var(--level2-border);
+}
+.drivers-table tbody tr.row-level2 td:first-child { box-shadow: inset 3px 0 0 var(--level2-color); }
+.drivers-table tbody tr.row-level2 { background-color: var(--level2-bg); }
+.event-item.event-item-level2 {
+  border-left-color: var(--level2-color);
+  background-color: var(--level2-bg);
+}
+.history-kpi-card.hkpi-card-level2::before {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0; left: 0;
+  width: 3px;
+  background-color: var(--level2-color);
+}
+.swatch-level2   { background: var(--level2-color); }
+.dot-microsueno  { background: var(--level2-color); }
+.banner-microsueno { background: var(--level2-bg); border-color: var(--level2-border); }
