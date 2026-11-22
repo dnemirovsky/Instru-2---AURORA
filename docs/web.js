@@ -27,6 +27,11 @@ const state = {
   modalChoferId: null,
   modalInterval: null,
 
+  // Recalibración sugerida (ver sección 6.b). false si la base todavía no
+  // tiene las columnas (no se corrió sql/supabase_recalibracion.sql).
+  recalDisponible: false,
+  recalChoferId: null,
+
   chartTab: "dia",
   chartTripId: null,
 
@@ -66,11 +71,10 @@ const DOM = {
   sessionInfo: $("sessionInfo"),
   logoutBtn: $("logoutBtn"),
 
-  navMenuBtn: $("navMenuBtn"),
-  navDropdownMenu: $("navDropdownMenu"),
-  navDropdownWrapper: $("navDropdownWrapper"),
-  currentViewLabel: $("currentViewLabel"),
-  dropdownItems: document.querySelectorAll(".dropdown-item"),
+  sidebar: $("sidebar"),
+  menuBtn: $("menuBtn"),
+  sidebarItems: document.querySelectorAll(".sidebar-item"),
+  temaBtn: $("temaBtn"),
   views: {
     inicio: $("viewInicio"),
     historial: $("viewHistorial"),
@@ -105,8 +109,12 @@ const DOM = {
   driversTableWrapper: $("driversTableWrapper"),
   driversTableBody: $("driversTableBody"),
   emptyState: $("emptyState"),
-  eventsList: $("eventsList"),
-  eventsCount: $("eventsCount"),
+  alertasList: $("alertasList"),
+  recalModal: $("recalModal"),
+  recalModalCerrar: $("recalModalCerrar"),
+  recalModalTexto: $("recalModalTexto"),
+  recalModalDetalle: $("recalModalDetalle"),
+  btnPedirRecalibracion: $("btnPedirRecalibracion"),
 
   historySearchInput: $("historySearchInput"),
   historyClearBtn: $("historyClearBtn"),
@@ -390,12 +398,13 @@ async function entrarAlPanel() {
   state.perfil = perfil;
   DOM.loginScreen.style.display = "none";
   DOM.appRoot.style.display = "block";
+  medirHeader();
   DOM.sessionInfo.textContent = perfil.rol === "superadmin"
     ? `${perfil.nombre} ${perfil.apellido} · Superadmin`
     : `${perfil.nombre} ${perfil.apellido} · ${perfil.empresas?.nombre || ""}`;
 
   // Cada rol ve solo los ítems de menú que le corresponden.
-  DOM.dropdownItems.forEach(item => {
+  DOM.sidebarItems.forEach(item => {
     const roles = (item.dataset.roles || "").split(",");
     item.style.display = roles.includes(perfil.rol) ? "" : "none";
   });
@@ -426,12 +435,14 @@ function vistaInicial() {
 /** Deja a la persona en "Mi cuenta", sin menú, hasta que cambie la contraseña. */
 function forzarCambioPassword() {
   cambiarVista("cuenta");
-  DOM.navMenuBtn.style.display = "none";
+  DOM.sidebar.style.display = "none";
+  DOM.menuBtn.style.display = "none";
   DOM.cuentaAviso.style.display = "block";
 }
 
 function liberarNavegacion() {
-  DOM.navMenuBtn.style.display = "";
+  DOM.sidebar.style.display = "";
+  DOM.menuBtn.style.display = "";
   DOM.cuentaAviso.style.display = "none";
 }
 
@@ -716,12 +727,34 @@ async function traerViajes() {
   return res;
 }
 
+const COLUMNAS_CHOFER = "id, rol, nombre, apellido, usuario, dni, mail, activo, empresa_id, estado_mail, debe_cambiar_password";
+const COLUMNAS_RECAL = "basal_calibrado_en, recalibracion_pedida_en, recalibracion_descartada_en";
+
+/**
+ * Trae los choferes con las fechas de calibración y de recalibración pedida /
+ * descartada. Si la base todavía no tiene esas columnas (no se corrió
+ * sql/supabase_recalibracion.sql), los trae como antes y la sugerencia de
+ * recalibración queda apagada.
+ */
+async function traerChoferes() {
+  const consulta = (columnas) => db.from("usuarios")
+    .select(columnas)
+    .eq("rol", "chofer")
+    .order("apellido");
+
+  const res = await consulta(COLUMNAS_CHOFER + ", " + COLUMNAS_RECAL);
+  if (res.error && res.error.code === "42703") {   // columna inexistente
+    console.warn("Faltan las columnas de recalibración en usuarios: correr sql/supabase_recalibracion.sql.");
+    state.recalDisponible = false;
+    return consulta(COLUMNAS_CHOFER);
+  }
+  state.recalDisponible = !res.error;
+  return res;
+}
+
 async function cargarDatos() {
   const [usuariosRes, viajesRes, eventosRes] = await Promise.all([
-    db.from("usuarios")
-      .select("id, rol, nombre, apellido, usuario, dni, mail, activo, empresa_id, estado_mail, debe_cambiar_password")
-      .eq("rol", "chofer")
-      .order("apellido"),
+    traerChoferes(),
     traerViajes(),
     db.from("eventos")
       .select("id, viaje_id, tipo, nivel, ocurrido_en, valor")
@@ -777,9 +810,133 @@ function armarChoferes() {
       nivel3: todosLosEventos.filter(e => e.nivel === 3).length,
       horasTotales: viajes.reduce((acc, v) => acc + duracionHoras(v), 0),
       eventosActual,
-      status
+      status,
+      recalibracion: state.recalDisponible ? analizarCalibracion(u, viajes, eventosPorViaje) : null
     };
   });
+}
+
+// ============================================================================
+// 4.b RECALIBRACIÓN SUGERIDA
+// ============================================================================
+/**
+ * Un chofer podría hacer mal la calibración de duración a propósito
+ * (parpadeando lento), para que su basal quede alto: así sus parpadeos lentos
+ * parecen normales y nunca le salta el nivel 1. Pero el nivel 2 (microsueño,
+ * un cierre de más de 0,5 s) no depende del basal, así que le sigue saltando.
+ *
+ * Regla: desde la última calibración del chofer, si tuvo al menos 5 alertas
+ * (de cualquier nivel) repartidas en 2 viajes o más, y el 60 % o más de esas
+ * alertas son de nivel 2, se sugiere recalibrar.
+ *
+ * - Solo cuentan viajes TERMINADOS, así que se reevalúa cada vez que un chofer
+ *   finaliza un viaje (la web se entera en vivo por Realtime).
+ * - Lo único que pone el conteo en cero es una calibración nueva. Si el admin
+ *   pide la recalibración o descarta el cartel, se sigue acumulando.
+ * - Para que el cartel no reaparezca enseguida con los mismos datos, después de
+ *   pedir o descartar se vuelve a mostrar recién cuando el chofer termina un
+ *   viaje nuevo (y la regla se sigue cumpliendo).
+ */
+const RECAL = {
+  MIN_ALERTAS: 5,         // al menos 5 alertas en total...
+  MIN_VIAJES: 2,          // ...repartidas en 2 viajes o más
+  PROPORCION_NIVEL2: 0.6  // y el 60 % o más de nivel 2
+};
+
+const msDe = (t) => t ? new Date(t).getTime() : 0;
+
+function analizarCalibracion(usuario, viajes, eventosPorViaje) {
+  const desde = msDe(usuario.basal_calibrado_en);
+  const terminados = viajes.filter(v =>
+    v.estado !== "en_curso" && v.fin && msDe(v.inicio) > desde);
+
+  let alertas = 0, nivel1 = 0, nivel2 = 0, nivel3 = 0, viajesConAlertas = 0;
+  terminados.forEach(v => {
+    const evs = (eventosPorViaje[v.id] || []).filter(e => e.nivel >= 1 && e.nivel <= 3);
+    if (evs.length) viajesConAlertas++;
+    alertas += evs.length;
+    evs.forEach(e => {
+      if (e.nivel === 1) nivel1++;
+      else if (e.nivel === 2) nivel2++;
+      else nivel3++;
+    });
+  });
+
+  const cumple =
+    alertas >= RECAL.MIN_ALERTAS &&
+    viajesConAlertas >= RECAL.MIN_VIAJES &&
+    nivel2 / alertas >= RECAL.PROPORCION_NIVEL2;
+
+  // Después de pedir o descartar: hace falta un viaje terminado nuevo.
+  const ultimaAccion = Math.max(msDe(usuario.recalibracion_pedida_en), msDe(usuario.recalibracion_descartada_en));
+  const hayViajeNuevo = terminados.some(v => msDe(v.fin) > ultimaAccion);
+
+  return {
+    sugerir: cumple && hayViajeNuevo,
+    viajes: terminados.length, alertas, nivel1, nivel2, nivel3
+  };
+}
+
+/** Actualiza una fecha de la ficha del chofer en memoria y redibuja (sin ir a la base). */
+function marcarEnChofer(choferId, columna) {
+  const u = state.usuarios.find(x => x.id === choferId);
+  if (u) u[columna] = new Date().toISOString();
+  armarChoferes();
+  renderAll();
+}
+
+async function descartarRecalibracion(choferId) {
+  const { error } = await db.rpc("descartar_recalibracion", { p_chofer: choferId });
+  if (error) {
+    console.error(error);
+    showToast("No se pudo descartar el aviso", "toast-error");
+    return;
+  }
+  marcarEnChofer(choferId, "recalibracion_descartada_en");
+}
+
+function abrirRecalModal(choferId) {
+  const c = state.choferes.find(x => x.id === choferId);
+  if (!c || !c.recalibracion) return;
+  state.recalChoferId = choferId;
+
+  DOM.recalModalTexto.innerHTML =
+    `Se detectó un problema con la calibración del conductor: ` +
+    `<strong>${escapeHtml(c.nombreCompleto)}</strong>. Se sugiere pedir una recalibración.`;
+
+  const r = c.recalibracion;
+  DOM.recalModalDetalle.textContent =
+    `Desde su última calibración tuvo ${r.alertas} alertas en ${r.viajes} viajes: ` +
+    `${r.nivel2} de nivel 2 (${Math.round(100 * r.nivel2 / r.alertas)} %), ` +
+    `${r.nivel1} de nivel 1 y ${r.nivel3} de nivel 3.`;
+
+  DOM.btnPedirRecalibracion.disabled = false;
+  DOM.recalModal.style.display = "flex";
+  DOM.recalModal.setAttribute("aria-hidden", "false");
+}
+
+function cerrarRecalModal() {
+  state.recalChoferId = null;
+  DOM.recalModal.style.display = "none";
+  DOM.recalModal.setAttribute("aria-hidden", "true");
+}
+
+async function pedirRecalibracion() {
+  const id = state.recalChoferId;
+  if (!id) return;
+  const c = state.choferes.find(x => x.id === id);
+  DOM.btnPedirRecalibracion.disabled = true;
+
+  const { error } = await db.rpc("pedir_recalibracion", { p_chofer: id });
+  if (error) {
+    console.error(error);
+    DOM.btnPedirRecalibracion.disabled = false;
+    showToast("No se pudo pedir la recalibración", "toast-error");
+    return;
+  }
+  cerrarRecalModal();
+  showToast(`Recalibración pedida${c ? " a " + c.nombreCompleto : ""}`);
+  marcarEnChofer(id, "recalibracion_pedida_en");
 }
 
 // ============================================================================
@@ -1011,7 +1168,7 @@ function actualizarPreviewUsuario(destino, inputNombre, inputApellido) {
 function renderAll() {
   renderKPIs();
   renderDrivers();
-  renderFeed();
+  renderAlertas();
   renderHistorial();
   // Si la ficha de un chofer esta abierta, se redibuja con los datos nuevos.
   if (state.modalChoferId) pintarModal();
@@ -1094,10 +1251,6 @@ function renderGrid(lista) {
 
       <div class="driver-vehicle-meta">
         <div class="meta-row">
-          <span class="meta-key">Estado:</span>
-          <span class="meta-val">${c.viajeActual ? "Viaje en curso" : "Sin viaje activo"}</span>
-        </div>
-        <div class="meta-row">
           <span class="meta-key">${c.viajeActual ? "Recorrido:" : "Último viaje:"}</span>
           <span class="meta-val">${escapeHtml(tramo(c.viajeRef))}</span>
         </div>
@@ -1169,53 +1322,42 @@ function filaConexion(viaje) {
   const con = estadoConexion(viaje);
   if (!con) return "";
   return `
-        <div class="meta-row" title="${escapeHtml(con.ayuda)}">
+        <div class="meta-row" title="${escapeHtml(con.texto + (con.ayuda ? ". " + con.ayuda : ""))}">
           <span class="meta-key">Conexión:</span>
-          <span class="meta-val ${con.clase}">${escapeHtml(con.texto)}</span>
+          <span class="meta-val ${con.clase}">${escapeHtml(con.corto)}</span>
         </div>`;
 }
 
-/** Feed lateral: los últimos 15 eventos de toda la empresa. */
-function renderFeed() {
-  const porViaje = {};
-  state.viajes.forEach(v => porViaje[v.id] = v);
-  const nombrePorChofer = {};
-  state.usuarios.forEach(u => nombrePorChofer[u.id] = `${u.nombre} ${u.apellido}`);
+/**
+ * Panel lateral "Alertas": avisos para el admin que no son eventos en vivo.
+ * Por ahora, uno solo: "Recalibración sugerida" (ver sección 4.b).
+ * Cada cartel se abre con un clic (modal para pedir la recalibración) y se
+ * descarta con la cruz.
+ */
+function renderAlertas() {
+  const lista = state.choferes.filter(c => c.recalibracion && c.recalibracion.sugerir);
+  DOM.alertasList.innerHTML = "";
 
-  // Solo eventos de viajes abiertos: cuando el chofer finaliza el viaje,
-  // sus alertas salen de esta lista y quedan en el historial.
-  const ultimos = state.eventos
-    .filter(ev => {
-      const viaje = porViaje[ev.viaje_id];
-      return viaje && viaje.estado === "en_curso";
-    })
-    .slice(0, 15);
-
-  DOM.eventsCount.textContent = ultimos.length;
-  DOM.eventsList.innerHTML = "";
-
-  if (!ultimos.length) {
-    DOM.eventsList.innerHTML =
-      `<p class="feed-empty">No hay alertas en los viajes en curso.</p>`;
+  if (!lista.length) {
+    DOM.alertasList.innerHTML = `<p class="feed-empty">No hay alertas.</p>`;
     return;
   }
 
-  ultimos.forEach(ev => {
-    const viaje = porViaje[ev.viaje_id];
-    const chofer = viaje ? nombrePorChofer[viaje.chofer_id] : "—";
+  lista.forEach(c => {
     const item = document.createElement("div");
-    item.className = `event-item event-item-${infoNivel(ev.nivel).clase}`;
+    item.className = "alerta-item";
     item.innerHTML = `
-      <span class="event-time">${formatoHora(ev.ocurrido_en)}</span>
-      <div class="event-content">
-        <strong>${escapeHtml(chofer)}</strong>
-        <p>${nombreTipo(ev.tipo)} · nivel ${ev.nivel}${ev.valor != null ? ` · ${valorConUnidad(ev)}` : ""}</p>
-      </div>`;
-    if (viaje) {
-      item.style.cursor = "pointer";
-      item.addEventListener("click", () => abrirModal(viaje.chofer_id));
-    }
-    DOM.eventsList.appendChild(item);
+      <button type="button" class="alerta-cuerpo">
+        <strong>${escapeHtml(c.nombreCompleto)}</strong>
+        <span>Recalibración sugerida</span>
+      </button>
+      <button type="button" class="alerta-descartar" aria-label="Descartar aviso" title="Descartar">&times;</button>`;
+    item.querySelector(".alerta-cuerpo").addEventListener("click", () => abrirRecalModal(c.id));
+    item.querySelector(".alerta-descartar").addEventListener("click", (e) => {
+      e.stopPropagation();
+      descartarRecalibracion(c.id);
+    });
+    DOM.alertasList.appendChild(item);
   });
 }
 
@@ -3032,18 +3174,76 @@ function arrancarReloj() {
 function cambiarVista(vista) {
   state.currentAppView = vista;
   Object.values(DOM.views).forEach(v => v.style.display = "none");
-  DOM.views[vista].style.display = "block";
-  DOM.currentViewLabel.textContent =
-    { inicio: "Inicio", historial: "Ver historial", alta: "Registrar nuevo conductor",
-      "superadmin-add": "Agregar administradores", "superadmin-edit": "Editar administradores",
-      "admin-edit": "Editar choferes", cuenta: "Mi cuenta" }[vista];
-  DOM.dropdownItems.forEach(i => i.classList.toggle("active", i.dataset.view === vista));
-  DOM.navDropdownMenu.style.display = "none";
-  DOM.navDropdownWrapper.classList.remove("open");
-  DOM.navMenuBtn.classList.remove("active-dropdown");
+  // "" y no "block": así cada vista usa el display de su CSS (algunas son flex).
+  DOM.views[vista].style.display = "";
+  DOM.sidebarItems.forEach(i => {
+    const activo = i.dataset.view === vista;
+    i.classList.toggle("active", activo);
+    if (activo) i.setAttribute("aria-current", "page"); else i.removeAttribute("aria-current");
+  });
   if (vista === "historial") renderHistorial();
   if (vista === "admin-edit") renderChoferesEdit();
   if (vista === "cuenta") renderCuenta();
+}
+
+// ============================================================================
+// 10.b MODO DÍA / NOCHE
+// ============================================================================
+// El tema se guarda en el navegador (como en la app, que lo guarda en el
+// teléfono). La primera vez se usa el del sistema. El <head> del HTML lo
+// aplica antes de pintar, para que no destelle en claro al entrar.
+
+function temaOscuro() {
+  return document.documentElement.getAttribute("data-tema") === "oscuro";
+}
+
+function pintarBotonTema() {
+  const texto = temaOscuro() ? "Cambiar a modo día" : "Cambiar a modo noche";
+  DOM.temaBtn.title = texto;
+  DOM.temaBtn.setAttribute("aria-label", texto);
+}
+
+function alternarTema() {
+  const oscuro = !temaOscuro();
+  if (oscuro) document.documentElement.setAttribute("data-tema", "oscuro");
+  else document.documentElement.removeAttribute("data-tema");
+  try { localStorage.setItem("aurora_tema", oscuro ? "oscuro" : "claro"); } catch (e) {}
+  pintarBotonTema();
+  // Los gráficos se dibujan con los colores del tema: se redibujan.
+  if (state.currentAppView === "historial") renderHistorial();
+}
+
+// ---- Menú lateral desplegable ----
+// Desplegado: se ve entero. Contraído: desaparece del todo y el contenido usa
+// todo el ancho. Se guarda en el navegador, igual que el tema.
+
+function menuContraido() {
+  return document.documentElement.getAttribute("data-menu") === "contraido";
+}
+
+function pintarBotonMenu() {
+  const texto = menuContraido() ? "Mostrar menú" : "Ocultar menú";
+  DOM.menuBtn.title = texto;
+  DOM.menuBtn.setAttribute("aria-label", texto);
+  DOM.menuBtn.setAttribute("aria-expanded", String(!menuContraido()));
+}
+
+function alternarMenu() {
+  const contraer = !menuContraido();
+  if (contraer) document.documentElement.setAttribute("data-menu", "contraido");
+  else document.documentElement.removeAttribute("data-menu");
+  try { localStorage.setItem("aurora_menu", contraer ? "contraido" : "desplegado"); } catch (e) {}
+  pintarBotonMenu();
+  // Cambia el ancho del contenido: el gráfico del historial se redibuja
+  // cuando termina la animación del menú.
+  if (state.currentAppView === "historial") setTimeout(renderHistorial, 260);
+}
+
+/** Altura del header en una variable CSS (la usan el menú lateral y las tablas). */
+function medirHeader() {
+  const header = document.querySelector(".top-header");
+  if (!header || !header.offsetHeight) return;
+  document.documentElement.style.setProperty("--alto-header", header.offsetHeight + "px");
 }
 
 // ============================================================================
@@ -3091,54 +3291,20 @@ function conectarEventos() {
     if (e.key === "Enter" || e.key === " ") { e.preventDefault(); cambiarVista(vistaInicial()); }
   });
 
-  // ---- Menú desplegable ----
-  // Se abre al acercar el mouse, y también con clic o teclado.
-
-  /** Cuánto tarda en aparecer cada ítem respecto del anterior. */
-  const ESCALON_MS = 45;
-
-  let cierreMenu = null;
-
-  function abrirMenu() {
-    clearTimeout(cierreMenu);
-    DOM.navDropdownMenu.style.display = "block";
-    DOM.navDropdownWrapper.classList.add("open");
-    DOM.navMenuBtn.classList.add("active-dropdown");
-    DOM.navMenuBtn.setAttribute("aria-expanded", "true");
-
-    // El escalonado cuenta solo los ítems visibles para este rol: si contara
-    // los ocultos quedarían huecos en la secuencia.
-    const visibles = [...DOM.dropdownItems].filter(i => i.style.display !== "none");
-    visibles.forEach((item, i) => {
-      item.style.animation = "none";
-      void item.offsetWidth;                    // reinicia la animación
-      item.style.animation = "";
-      item.style.animationDelay = `${i * ESCALON_MS}ms`;
-    });
-  }
-
-  function cerrarMenu() {
-    DOM.navDropdownMenu.style.display = "none";
-    DOM.navDropdownWrapper.classList.remove("open");
-    DOM.navMenuBtn.classList.remove("active-dropdown");
-    DOM.navMenuBtn.setAttribute("aria-expanded", "false");
-  }
-
-  DOM.navDropdownWrapper.addEventListener("mouseenter", abrirMenu);
-  DOM.navDropdownWrapper.addEventListener("mouseleave", () => {
-    // Un respiro antes de cerrar, por si el mouse se sale un instante.
-    cierreMenu = setTimeout(cerrarMenu, 220);
-  });
-
-  DOM.navMenuBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    DOM.navDropdownMenu.style.display === "block" ? cerrarMenu() : abrirMenu();
-  });
-
-  document.addEventListener("click", cerrarMenu);
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") cerrarMenu(); });
-  DOM.dropdownItems.forEach(item =>
+  // ---- Menú lateral ----
+  DOM.sidebarItems.forEach(item =>
     item.addEventListener("click", () => cambiarVista(item.dataset.view)));
+  pintarBotonMenu();
+  DOM.menuBtn.addEventListener("click", alternarMenu);
+
+  // ---- Modo día / noche ----
+  pintarBotonTema();
+  DOM.temaBtn.addEventListener("click", alternarTema);
+
+  // El menú lateral y las tablas con scroll propio se acomodan a la altura
+  // real del header (cambia si se achica la ventana).
+  medirHeader();
+  window.addEventListener("resize", medirHeader);
 
   DOM.filterButtons.forEach(btn => btn.addEventListener("click", () => {
     state.activeFilter = btn.dataset.status;
@@ -3199,8 +3365,15 @@ function conectarEventos() {
     if (e.target === DOM.driverModal) cerrarModal();
   });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") cerrarModal();
+    if (e.key === "Escape") { cerrarModal(); cerrarRecalModal(); }
   });
+
+  // Modal de recalibración sugerida
+  DOM.recalModalCerrar.addEventListener("click", cerrarRecalModal);
+  DOM.recalModal.addEventListener("click", (e) => {
+    if (e.target === DOM.recalModal) cerrarRecalModal();
+  });
+  DOM.btnPedirRecalibracion.addEventListener("click", pedirRecalibracion);
 
   DOM.newDriverForm.addEventListener("submit", altaConductor);
   conectarEventosCsv();

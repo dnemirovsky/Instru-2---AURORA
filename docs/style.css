@@ -3666,3 +3666,794 @@ body {
 .swatch-level2   { background: var(--level2-color); }
 .dot-microsueno  { background: var(--level2-color); }
 .banner-microsueno { background: var(--level2-bg); border-color: var(--level2-border); }
+/* =========================================================
+   Panel "Alertas": recalibración sugerida
+   ========================================================= */
+.alertas-list {
+  margin-top: 0.75rem;
+}
+
+.alerta-item {
+  display: flex;
+  align-items: flex-start;
+  border-radius: var(--radius-sm);
+  background-color: var(--primary-light);
+  border-left: 3px solid var(--primary-color);
+  transition: background-color 0.15s ease;
+}
+
+.alerta-item:hover {
+  background-color: var(--bg-subtle);
+}
+
+.alerta-cuerpo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.7rem 0.4rem 0.7rem 0.8rem;
+  background: none;
+  border: none;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.alerta-cuerpo strong {
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.alerta-cuerpo span {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.alerta-descartar {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.15rem;
+  line-height: 1;
+  padding: 0.55rem 0.65rem;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.alerta-descartar:hover {
+  color: var(--text-primary);
+}
+
+.alerta-cuerpo:focus-visible,
+.alerta-descartar:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -2px;
+}
+
+/* Modal chico (recalibración) */
+.modal-card-chico {
+  max-width: 460px;
+}
+
+.modal-titulo {
+  font-family: var(--fuente-titulo);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.recal-texto {
+  font-size: 0.92rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.recal-detalle {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin-top: -0.5rem;
+}
+
+#recalModal .form-actions-row {
+  justify-content: flex-end;
+}
+
+#recalModal .btn-primary-action {
+  flex: 0 0 auto;
+}
+
+#recalModal .btn-primary-action:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* =========================================================
+   MENÚ LATERAL
+   Reemplaza al desplegable del header. Queda fijo a la izquierda,
+   debajo del header, mientras se scrollea el contenido.
+   ========================================================= */
+:root {
+  --alto-header: 68px;     /* el JS lo pisa con la altura real (medirHeader) */
+  --ancho-menu: 262px;     /* ancho suficiente para "Registrar nuevo conductor" */
+}
+
+.app-shell {
+  display: flex;
+  align-items: flex-start;
+}
+
+.app-shell > .main-container {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar {
+  position: sticky;
+  top: var(--alto-header);
+  height: calc(100vh - var(--alto-header));
+  width: var(--ancho-menu);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 1.25rem 0.75rem;
+  /* Deja pasar un poco el rastro de aurora del fondo */
+  background-color: color-mix(in srgb, var(--bg-card) 72%, transparent);
+  border-right: 1px solid var(--border-color);
+  overflow-y: auto;
+  z-index: 5;
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.sidebar-item svg {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: color 0.15s ease;
+}
+
+.sidebar-item:hover {
+  background-color: var(--bg-subtle);
+  color: var(--text-primary);
+}
+
+.sidebar-item:hover svg {
+  color: var(--primary-color);
+}
+
+.sidebar-item.active {
+  background-color: var(--primary-light);
+  color: var(--primary-hover);
+}
+
+.sidebar-item.active svg {
+  color: var(--primary-color);
+}
+
+.sidebar-item-text strong {
+  font-size: 0.86rem;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.sidebar-item.active .sidebar-item-text strong {
+  font-weight: 600;
+}
+
+.sidebar-item:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -2px;
+}
+
+/* El panel de alertas se pega debajo del header, no a una altura fija */
+.activity-feed-panel {
+  top: calc(var(--alto-header) + 1rem);
+  max-height: calc(100vh - var(--alto-header) - 2rem);
+}
+
+
+/* =========================================================
+   TABLAS EN UN RECUADRO CON SCROLL PROPIO
+   (Historial, Editar choferes, Editar administradores)
+   La vista ocupa el alto de la pantalla y la tabla usa lo que sobra;
+   las filas se scrollean adentro del recuadro, no la página.
+   ========================================================= */
+.vista-alto-pantalla {
+  display: flex;
+  flex-direction: column;
+  /* 3.5rem = el padding de arriba y de abajo de .main-container */
+  height: calc(100vh - var(--alto-header) - 3.5rem);
+}
+
+/* :where() deja estas reglas con especificidad 0, para que la de la tabla
+   (que sí tiene que achicarse) siempre les gane. */
+:where(.vista-alto-pantalla > *, #historyResultados > *) {
+  flex-shrink: 0;
+}
+
+#historyResultados {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  min-height: 0;
+}
+
+.vista-alto-pantalla .tabla-recuadro {
+  flex: 0 1 auto;      /* con pocas filas queda chica; con muchas, llena y scrollea */
+  min-height: 12rem;
+  overflow: auto;
+}
+
+/* Encabezado de la tabla fijo arriba mientras se scrollean las filas */
+.tabla-recuadro thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background-color: var(--bg-card);
+  border-bottom: none;
+  box-shadow: inset 0 -1px 0 var(--border-strong);
+}
+
+.tabla-recuadro::-webkit-scrollbar {
+  width: 10px;
+}
+
+/* Si la pantalla es muy baja no entra todo: se deja scrollear la página,
+   pero la tabla sigue con su recuadro. */
+@media (max-height: 640px) {
+  .vista-alto-pantalla { height: auto; }
+  .vista-alto-pantalla .tabla-recuadro { max-height: 70vh; }
+}
+
+/* =========================================================
+   HISTORIAL MÁS COMPACTO
+   Las seis tarjetas en un solo renglón y el gráfico más bajo,
+   para que quede lugar para la tabla.
+   ========================================================= */
+.vista-alto-pantalla .view-header {
+  margin-bottom: 1rem;
+}
+
+#viewHistorial .history-controls-bar {
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.9rem;
+}
+
+.history-kpis-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 0.9rem;
+}
+
+.history-kpi-card {
+  padding: 0.55rem 0.8rem;
+  border-radius: var(--radius-md);
+  gap: 0.1rem;
+}
+
+.hkpi-title {
+  font-size: 0.72rem;
+  line-height: 1.25;
+}
+
+.hkpi-value {
+  font-size: 1.35rem;
+}
+
+.history-kpi-card:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+#viewHistorial .history-chart-tabs {
+  margin-bottom: 0.6rem;
+}
+
+#viewHistorial .history-chart-card {
+  margin-bottom: 0.9rem;
+}
+
+#viewHistorial .chart-canvas-wrapper {
+  height: 210px;
+}
+
+@media (max-width: 760px) {
+  .history-kpis-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* =========================================================
+   FORMULARIOS COMPACTOS (Mi cuenta, Registrar nuevo conductor)
+   Mismo diseño, más chico: entra en la pantalla sin scrollear.
+   ========================================================= */
+.vista-compacta .view-header {
+  margin-bottom: 1rem;
+}
+
+.vista-compacta .view-header-title h2 {
+  font-size: 1.35rem;
+}
+
+.vista-compacta .alta-modo-switch {
+  margin-bottom: 0.9rem;
+}
+
+.vista-compacta .modo-btn {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+}
+
+.vista-compacta .form-container-card {
+  padding: 1.25rem 1.5rem;
+  max-width: 700px;
+  border-radius: var(--radius-md);
+}
+
+.vista-compacta .driver-form {
+  gap: 0.85rem;
+}
+
+.vista-compacta .form-section-title {
+  font-size: 0.92rem;
+  margin-top: 0;
+  padding-bottom: 0.4rem;
+}
+
+.form-section-separada {
+  margin-top: 1.25rem;
+}
+
+.vista-compacta .form-section-separada {
+  margin-top: 0.5rem;
+}
+
+.vista-compacta .form-grid-2 {
+  gap: 0.85rem;
+}
+
+.vista-compacta .form-group {
+  gap: 0.25rem;
+}
+
+.vista-compacta .form-group label {
+  font-size: 0.78rem;
+}
+
+.vista-compacta .form-input {
+  padding: 0.45rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+.vista-compacta .form-hint-box {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+}
+
+.vista-compacta .form-actions-row {
+  padding-top: 0.75rem;
+}
+
+.vista-compacta .btn-submit-form {
+  padding: 0.55rem 1.2rem;
+  font-size: 0.86rem;
+}
+
+.vista-compacta .cuenta-aviso {
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+}
+
+.vista-compacta .alta-resultado {
+  margin-top: 12px;
+  padding: 12px 14px;
+}
+
+/* =========================================================
+   MODO NOCHE
+   Mismos colores que la app (Tema.kt, EsquemaOscuro).
+   Se activa con data-tema="oscuro" en <html> (botón del header).
+   ========================================================= */
+
+/* Ícono del botón: luna en modo día, sol en modo noche */
+#temaBtn .icono-sol { display: none; }
+html[data-tema="oscuro"] #temaBtn .icono-sol { display: block; }
+html[data-tema="oscuro"] #temaBtn .icono-luna { display: none; }
+
+html[data-tema="oscuro"] {
+  color-scheme: dark;
+
+  --bg-main: #0e1126;          /* noche, como el fondo de la app */
+  --bg-card: #161a34;
+  --bg-subtle: #1e2342;
+
+  --text-primary: #f2eef4;
+  --text-secondary: #a7a1bc;
+  --text-muted: #7d7896;
+
+  --border-color: #2a2f52;
+  --border-strong: #3a4070;
+
+  --normal-color: #4cb39a;
+  --normal-bg: rgba(76, 179, 154, 0.12);
+  --normal-border: rgba(76, 179, 154, 0.35);
+  --normal-text: #8fd8c4;
+
+  --warning-color: #e0983a;
+  --warning-bg: rgba(224, 152, 58, 0.13);
+  --warning-border: rgba(224, 152, 58, 0.38);
+  --warning-text: #f2c27f;
+
+  --level2-color: #e0692f;     /* un poco más vivo para la noche (igual que la app) */
+  --level2-bg: rgba(224, 105, 47, 0.14);
+  --level2-border: rgba(224, 105, 47, 0.4);
+  --level2-text: #f5a57c;
+
+  --danger-color: #d9435f;
+  --danger-bg: rgba(217, 67, 95, 0.14);
+  --danger-border: rgba(217, 67, 95, 0.4);
+  --danger-text: #ff9fb2;
+
+  --primary-light: #3a1a2a;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 6px 18px -8px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 18px 44px -18px rgba(0, 0, 0, 0.75);
+}
+
+html[data-tema="oscuro"] body {
+  background-color: var(--bg-main);
+  background-image:
+    radial-gradient(130% 320px at 10% 0%, rgba(242, 119, 141, 0.16), transparent 72%),
+    radial-gradient(110% 300px at 50% 0%, rgba(124, 92, 255, 0.16), transparent 72%),
+    radial-gradient(120% 310px at 90% 0%, rgba(249, 160, 15, 0.08), transparent 72%);
+}
+
+html[data-tema="oscuro"] .top-header {
+  background-color: #0b0d1f;
+  border-bottom-color: var(--border-color);
+}
+
+html[data-tema="oscuro"] .sidebar-item.active {
+  color: #ff9caf;
+}
+
+/* Lo que en el modo día era blanco fijo */
+html[data-tema="oscuro"] .search-box input:focus,
+html[data-tema="oscuro"] .form-input:focus,
+html[data-tema="oscuro"] .form-select:focus,
+html[data-tema="oscuro"] .csv-celda:focus {
+  background-color: var(--bg-card);
+}
+
+html[data-tema="oscuro"] .form-input.input-error {
+  background-color: var(--danger-bg);
+}
+
+html[data-tema="oscuro"] .plate-pill,
+html[data-tema="oscuro"] .btn-card-detail {
+  background-color: var(--bg-subtle);
+}
+
+html[data-tema="oscuro"] .kpi-title,
+html[data-tema="oscuro"] .kpi-tag.tag-neutral,
+html[data-tema="oscuro"] .insight-badge {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+html[data-tema="oscuro"] .driver-avatar,
+html[data-tema="oscuro"] .table-driver-col .mini-avatar {
+  background-image: linear-gradient(145deg, #2e2347, #3a2c5c);
+  border-color: var(--bg-card);
+}
+
+html[data-tema="oscuro"] .contador-total {
+  background-image: linear-gradient(152deg, #2e2347 0%, #3a2c5c 100%);
+}
+
+html[data-tema="oscuro"] .chart-icon-badge {
+  border-color: var(--primary-light);
+}
+
+html[data-tema="oscuro"] .driver-card.card-alerta .btn-card-detail {
+  background-color: var(--danger-bg);
+}
+
+html[data-tema="oscuro"] .driver-card.card-alerta .btn-card-detail:hover {
+  background-color: rgba(217, 67, 95, 0.24);
+}
+
+html[data-tema="oscuro"] .modal-backdrop {
+  background-color: rgba(5, 6, 16, 0.7);
+}
+
+/* El login tiene su propio cielo nocturno: no cambia con el tema */
+html[data-tema="oscuro"] .login-screen {
+  color-scheme: light;
+  --bg-main: #f8f5f2;
+  --bg-card: #ffffff;
+  --bg-subtle: #f3efea;
+  --text-primary: #1c1b2e;
+  --text-secondary: #56526a;
+  --text-muted: #8b8499;
+  --border-color: #e8e2db;
+  --border-strong: #d6cdc2;
+  --danger-color: #b8324f;
+  --danger-bg: #fbeaee;
+  --danger-border: #eec2cc;
+  --danger-text: #7d1f35;
+  --normal-bg: #eaf3f0;
+  --normal-border: #bcd9d1;
+  --normal-text: #1f5a4d;
+  --warning-bg: #fbf0dd;
+  --warning-border: #eed3a4;
+  --warning-text: #8a5716;
+  --primary-light: #fdeef1;
+}
+
+/* ---------- Historial: el buscador va al lado del título ---------- */
+#viewHistorial .view-header {
+  align-items: flex-start;
+  flex-wrap: nowrap;
+}
+
+#viewHistorial .view-header .history-controls-bar {
+  flex: 0 1 560px;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* La etiqueta queda para lectores de pantalla: el placeholder ya lo explica */
+#viewHistorial .view-header .history-filter-item label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+#viewHistorial .busqueda-resultado:empty {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  #viewHistorial .view-header { flex-wrap: wrap; }
+  #viewHistorial .view-header .history-controls-bar { flex-basis: 100%; }
+}
+
+/* ---------- Historial: tarjeta del gráfico más compacta ---------- */
+#viewHistorial .history-chart-card {
+  padding: 0.85rem 1.1rem;
+  gap: 0.6rem;
+  border-radius: var(--radius-md);
+}
+
+#viewHistorial .chart-card-header {
+  padding-bottom: 0.5rem;
+}
+
+#viewHistorial .chart-icon-badge {
+  width: 30px;
+  height: 30px;
+}
+
+#viewHistorial .chart-icon-badge svg {
+  width: 16px;
+  height: 16px;
+}
+
+#viewHistorial .chart-header-left h3 {
+  font-size: 0.95rem;
+}
+
+#viewHistorial .chart-canvas-wrapper {
+  height: 190px;
+}
+
+#viewHistorial .chart-footer-meta {
+  padding-top: 0.4rem;
+  font-size: 0.8rem;
+}
+
+#viewHistorial .history-chart-tabs .filter-btn {
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8rem;
+}
+
+/* ---------- Modo noche: detalles ---------- */
+html[data-tema="oscuro"] .driver-avatar,
+html[data-tema="oscuro"] .table-driver-col .mini-avatar,
+html[data-tema="oscuro"] .contador-numero {
+  color: #d6c8ff;
+}
+
+html[data-tema="oscuro"] .btn-accion-baja {
+  background-color: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+html[data-tema="oscuro"] .btn-accion-baja:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+
+.sidebar-item-text strong { white-space: nowrap; }
+html[data-tema="oscuro"] .login-screen { color: var(--text-primary); }
+
+/* Carga masiva: las tarjetas apiladas con un poco de aire entre sí */
+#altaCsv .form-container-card + .form-container-card {
+  margin-top: 0.9rem;
+}
+
+/* =========================================================
+   MENÚ LATERAL DESPLEGABLE
+   El botón de las tres rayitas (header) lo contrae a solo íconos
+   o lo despliega con los nombres.
+   ========================================================= */
+.menu-toggle {
+  margin-right: 0.25rem;
+}
+
+/* Contraído: el menú desaparece del todo y el contenido usa todo el ancho.
+   (visibility espera a que termine la animación, así se ve el cierre y
+   después los botones dejan de poder recibir el foco con Tab.) */
+.sidebar {
+  transition: width 0.22s ease, padding 0.22s ease, visibility 0s linear 0s;
+}
+
+html[data-menu="contraido"] {
+  --ancho-menu: 0px;
+}
+
+html[data-menu="contraido"] .sidebar {
+  padding-left: 0;
+  padding-right: 0;
+  border-right-width: 0;
+  overflow: hidden;
+  visibility: hidden;
+  transition: width 0.22s ease, padding 0.22s ease, visibility 0s linear 0.22s;
+}
+
+/* Mientras se cierra, los nombres no se acomodan en dos renglones */
+.sidebar-item { white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar { transition: none; }
+}
+
+/* =========================================================
+   MÁRGENES MÁS GRANDES A LOS COSTADOS
+   El contenido no queda pegado a los bordes de la pantalla.
+   ========================================================= */
+.main-container {
+  padding-left: clamp(1.5rem, 4vw, 4.5rem);
+  padding-right: clamp(1.5rem, 4vw, 4.5rem);
+}
+
+.header-container {
+  max-width: none;
+  padding-left: clamp(1.25rem, 2.5vw, 2.5rem);
+  padding-right: clamp(1.25rem, 2.5vw, 2.5rem);
+}
+
+/* =========================================================
+   INICIO: TARJETAS MÁS CHICAS
+   Más compactas, para que entren varias por renglón.
+   ========================================================= */
+.kpi-section {
+  gap: 0.9rem;
+}
+
+.kpi-card {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+}
+
+.kpi-card .kpi-number {
+  font-size: 1.6rem;
+}
+
+.content-layout {
+  grid-template-columns: minmax(0, 1fr) 290px;
+  gap: 1.5rem;
+}
+
+.drivers-grid {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.9rem;
+}
+
+.driver-card {
+  padding: 0.85rem 0.95rem;
+  gap: 0.6rem;
+  border-radius: var(--radius-md);
+}
+
+.driver-avatar {
+  width: 34px;
+  height: 34px;
+  font-size: 0.78rem;
+}
+
+.driver-info-main {
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.driver-name-block {
+  min-width: 0;
+}
+
+.driver-name-block h3 {
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.driver-license {
+  font-size: 0.7rem;
+}
+
+.driver-card .status-badge {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+  flex-shrink: 0;
+}
+
+.driver-vehicle-meta {
+  padding: 0.45rem 0.65rem;
+  gap: 0.2rem;
+  font-size: 0.74rem;
+}
+
+.driver-vehicle-meta .meta-val {
+  text-align: right;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fatigue-section {
+  gap: 0.15rem;
+}
+
+.fatigue-header {
+  font-size: 0.74rem;
+}
+
+.fatigue-score {
+  font-size: 1rem;
+}
+
+.btn-card-detail {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.78rem;
+}
+
+@media (min-width: 993px) and (max-width: 1100px) {
+  .content-layout { grid-template-columns: minmax(0, 1fr) 250px; }
+}
