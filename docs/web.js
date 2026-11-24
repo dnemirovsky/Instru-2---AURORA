@@ -641,12 +641,21 @@ async function expulsar(motivo) {
 // eventos. Cuando llega un aviso se recarga todo y se redibuja (incluida la
 // ficha del chofer, si esta abierta).
 //
-// Dos cuidados: no se recarga en cada aviso sino una vez por segundo como
-// mucho, y si el websocket no engancha arranca un respaldo cada 20 segundos.
+// Cuidados:
+//  - No se recarga en cada aviso sino una vez por segundo como mucho.
+//  - Cada vez que el websocket se (re)conecta se recarga: si la compu se
+//    durmió o se cortó el wifi, los avisos de ese rato se perdieron.
+//  - Además de los avisos, se consulta la base cada 15 s SIEMPRE (no solo si
+//    el websocket falla). Hay casos en que el websocket figura conectado pero
+//    no llega nada (por ejemplo, si la tabla no está habilitada para tiempo
+//    real en Supabase): así lo peor que puede pasar es una demora de 15 s.
+
+const CONSULTA_PERIODICA_MS = 15000;
 
 let canalVivo = null;
 let recargaPendiente = null;
 let respaldo = null;
+let escuchandoPestana = false;
 
 function recargarPronto() {
   if (recargaPendiente) return;
@@ -665,27 +674,30 @@ function escucharCambios() {
     .on("postgres_changes", { event: "*", schema: "public", table: "eventos" }, recargarPronto)
     .on("postgres_changes", { event: "*", schema: "public", table: "viajes" }, recargarPronto)
     .subscribe((estado) => {
-      if (estado === "SUBSCRIBED") {
-        detenerRespaldo();
-      } else if (estado === "CHANNEL_ERROR" || estado === "TIMED_OUT" || estado === "CLOSED") {
-        arrancarRespaldo();
+      // Conectado (o reconectado): ponerse al día con lo que pasó mientras tanto.
+      if (estado === "SUBSCRIBED") recargarPronto();
+      else if (estado === "CHANNEL_ERROR" || estado === "TIMED_OUT" || estado === "CLOSED") {
+        console.warn("Tiempo real:", estado, "— sigue la consulta cada 15 s.");
       }
     });
 
-  setTimeout(() => {
-    if (!canalVivo || canalVivo.state !== "joined") arrancarRespaldo();
-  }, 8000);
+  arrancarRespaldo();
 
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible" && state.perfil) cargarDatos();
-  });
+  // Al volver a la pestaña (o despertar la compu), recargar enseguida.
+  if (!escuchandoPestana) {
+    escuchandoPestana = true;
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && state.perfil) recargarPronto();
+    });
+    window.addEventListener("online", () => { if (state.perfil) recargarPronto(); });
+  }
 }
 
 function arrancarRespaldo() {
   if (respaldo) return;
   respaldo = setInterval(() => {
     if (document.visibilityState === "visible" && state.perfil) cargarDatos();
-  }, 20000);
+  }, CONSULTA_PERIODICA_MS);
 }
 
 function detenerRespaldo() {
@@ -752,7 +764,83 @@ async function traerChoferes() {
   return res;
 }
 
-async function cargarDatos() {
+/**
+ * Trae choferes, viajes y eventos y redibuja todo.
+ *
+ * Es a prueba de fallas pasajeras, porque se llama seguido (al entrar, con
+ * cada aviso de tiempo real y cada 15 s):
+ *  - Nunca corren dos cargas a la vez: si piden otra mientras hay una en
+ *    curso, se hace una sola más al terminar (antes se pisaban y a veces
+ *    quedaba dibujada la respuesta vieja).
+ *  - Si falla, reintenta sola (a los 1,5 s y a los 4 s). Si el error es de
+ *    sesión vencida (pasa al volver de una compu dormida), renueva la sesión
+ *    antes de reintentar.
+ *  - Mientras tanto quedan en pantalla los últimos datos buenos. El cartel
+ *    "No se pudieron cargar los datos" sale solo si fallan todos los
+ *    reintentos, y como mucho una vez por minuto.
+ */
+let cargando = null;            // la carga en curso (una promesa), o null
+let otraCargaPedida = false;
+let ultimoCartelError = 0;
+
+function cargarDatos() {
+  if (cargando) {
+    otraCargaPedida = true;
+    return cargando;
+  }
+  cargando = (async () => {
+    try {
+      do {
+        otraCargaPedida = false;
+        await cargarDatosConReintentos();
+      } while (otraCargaPedida);
+    } finally {
+      cargando = null;
+    }
+  })();
+  return cargando;
+}
+
+const esperar = (ms) => new Promise(r => setTimeout(r, ms));
+
+function esErrorDeSesion(err) {
+  if (!err) return false;
+  const texto = `${err.code || ""} ${err.message || ""} ${err.status || ""}`.toLowerCase();
+  return texto.includes("jwt") || texto.includes("pgrst301") || texto.includes("401");
+}
+
+async function cargarDatosConReintentos() {
+  const esperas = [0, 1500, 4000];
+  let ultimoError = null;
+
+  for (const ms of esperas) {
+    if (ms) await esperar(ms);
+    if (!state.perfil) return;                       // cerró sesión mientras tanto
+
+    let error = null;
+    try {
+      error = await cargarDatosUnaVez();
+    } catch (e) {
+      error = e;                                     // sin red: fetch tira excepción
+    }
+    if (!error) return;                              // salió bien
+
+    ultimoError = error;
+    console.warn("Carga de datos fallida, reintento:", error);
+    if (esErrorDeSesion(error)) {
+      try { await db.auth.refreshSession(); } catch (_) {}
+    }
+  }
+
+  console.error("No se pudieron cargar los datos:", ultimoError);
+  if (Date.now() - ultimoCartelError > 60000) {
+    ultimoCartelError = Date.now();
+    showToast("No se pudieron cargar los datos. Reintentando…", "toast-error");
+  }
+}
+
+/** Una sola consulta de todo. Devuelve el error, o null si salió bien. */
+async function cargarDatosUnaVez() {
   const [usuariosRes, viajesRes, eventosRes] = await Promise.all([
     traerChoferes(),
     traerViajes(),
@@ -762,18 +850,22 @@ async function cargarDatos() {
       .limit(1000)
   ]);
 
-  if (usuariosRes.error || viajesRes.error || eventosRes.error) {
-    showToast("No se pudieron cargar los datos", "toast-error");
-    console.error(usuariosRes.error || viajesRes.error || eventosRes.error);
-    return;
-  }
+  const error = usuariosRes.error || viajesRes.error || eventosRes.error;
+  if (error) return error;
 
   state.usuarios = usuariosRes.data || [];
   state.viajes = viajesRes.data || [];
   state.eventos = eventosRes.data || [];
 
-  armarChoferes();
-  renderAll();
+  // Si falla el dibujo es un error de la página, no de la conexión: se anota
+  // en la consola pero no se reintenta ni se muestra el cartel de datos.
+  try {
+    armarChoferes();
+    renderAll();
+  } catch (e) {
+    console.error("Error al dibujar el panel:", e);
+  }
+  return null;
 }
 
 /**
