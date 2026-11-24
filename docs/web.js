@@ -1451,20 +1451,6 @@ function renderHistorial() {
     })
     .filter(f => !idsBuscados || idsBuscados.has(f.choferId));
 
-  DOM.hkpiTotal.textContent = filas.length;
-  DOM.hkpiNivel1.textContent = filas.filter(f => f.nivel === 1).length;
-  DOM.hkpiNivel2.textContent = filas.filter(f => f.nivel === 2).length;
-  if (DOM.hkpiNivel3) DOM.hkpiNivel3.textContent = filas.filter(f => f.nivel === 3).length;
-  // Los viajes y las horas acompañan a lo que se buscó: si el campo está
-  // vacío son de toda la flota, y si no, solo de los que coinciden.
-  const viajesMostrados = idsBuscados
-    ? state.viajes.filter(v => idsBuscados.has(v.chofer_id))
-    : state.viajes;
-
-  DOM.hkpiViajes.textContent = viajesMostrados.length;
-  DOM.hkpiHoras.textContent = formatoDuracion(
-    viajesMostrados.reduce((acc, v) => acc + duracionHoras(v), 0));
-
   // Mientras haya que elegir, no se muestra nada del historial: ni los
   // números, ni los gráficos, ni la tabla.
   DOM.historyResultados.style.display = hayQueElegir ? "none" : "";
@@ -1480,7 +1466,37 @@ function renderHistorial() {
   }
   DOM.historyTableBody.innerHTML = "";
 
-  filas.slice(0, 200).forEach(f => {
+  // En la solapa "Eventos por viaje" la tabla muestra solo los eventos del
+  // viaje elegido en el gráfico (y por lo tanto, solo de esa persona).
+  // El selector se arma antes, porque puede cambiar el viaje elegido.
+  armarSelectorDeViajes();
+  const porViajeElegido = state.chartTab === "viaje";
+  const filasTabla = porViajeElegido
+    ? filas.filter(f => f.viaje_id === state.chartTripId)
+    : filas;
+
+  // Las tarjetas de arriba cuentan lo mismo que muestra la tabla:
+  //   · "Eventos por día":   lo buscado (toda la flota, o la persona buscada)
+  //   · "Eventos por viaje": solo el viaje elegido
+  const viajeElegido = state.viajes.find(v => v.id === state.chartTripId);
+  const viajesMostrados = porViajeElegido
+    ? (viajeElegido ? [viajeElegido] : [])
+    : (idsBuscados ? state.viajes.filter(v => idsBuscados.has(v.chofer_id)) : state.viajes);
+
+  DOM.hkpiTotal.textContent = filasTabla.length;
+  DOM.hkpiNivel1.textContent = filasTabla.filter(f => f.nivel === 1).length;
+  DOM.hkpiNivel2.textContent = filasTabla.filter(f => f.nivel === 2).length;
+  if (DOM.hkpiNivel3) DOM.hkpiNivel3.textContent = filasTabla.filter(f => f.nivel === 3).length;
+  DOM.hkpiViajes.textContent = viajesMostrados.length;
+  DOM.hkpiHoras.textContent = formatoDuracion(
+    viajesMostrados.reduce((acc, v) => acc + duracionHoras(v), 0));
+
+  if (porViajeElegido && !hayQueElegir && filas.length && !filasTabla.length) {
+    DOM.historyTableBody.innerHTML =
+      `<tr><td colspan="6" class="tabla-sin-filas">Este viaje no tuvo eventos.</td></tr>`;
+  }
+
+  filasTabla.slice(0, 200).forEach(f => {
     const tr = document.createElement("tr");
     if (f.nivel === 3) tr.className = "row-danger";
     else if (f.nivel === 2) tr.className = "row-level2";
@@ -1495,7 +1511,6 @@ function renderHistorial() {
   });
 
   dibujarGrafico(filas);
-  armarSelectorDeViajes();
   dibujarGraficoViaje();
 }
 
@@ -3273,7 +3288,8 @@ function conectarEventos() {
 
   DOM.chartTripSelect.addEventListener("change", (e) => {
     state.chartTripId = e.target.value || null;
-    dibujarGraficoViaje();
+    // Se redibuja todo el historial: la tabla de abajo sigue al viaje elegido.
+    renderHistorial();
   });
 
   // Al pasar el mouse por el logo se encienden las nubecitas del header.

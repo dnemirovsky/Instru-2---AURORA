@@ -4457,3 +4457,19 @@ html[data-menu="contraido"] .sidebar {
 @media (min-width: 993px) and (max-width: 1100px) {
   .content-layout { grid-template-columns: minmax(0, 1fr) 250px; }
 }
+
+/* Tabla del historial sin eventos para el viaje elegido */
+.tabla-sin-filas {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 1.5rem 1rem;
+}
+
+/* Reloj de ancho fijo: entra "12:59 pm" (el formato más largo), así al
+   cambiar de formato no se corre el botón de modo día/noche que está al lado. */
+.clock-display {
+  box-sizing: border-box;
+  width: calc(8ch + 1.5rem + 2px);
+  min-width: 0;
+  white-space: nowrap;
+}
